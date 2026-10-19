@@ -34,7 +34,7 @@ src/
   ui/
     ReviewPanel.ts       webview host, debounced refresh, open-file messages
   extension.ts           activate, command `vibeReview.open`, file watcher wiring
-media/                   webview JS/CSS (SVG graph, no framework in v1)
+webview/                 React app (React Flow + elkjs); consumes GraphModel JSON only, knows nothing about languages
 test/                    per-strategy fixtures + GraphBuilder tests
 ```
 Adding a stack = new folder in `languages/` + one line in `languages/index.ts`. Nothing else changes.
@@ -57,7 +57,12 @@ Project is open source, so contributor conventions exist from day one:
 4. **Tree-sitter loader + TypeScript strategy**: symbols and imports for one file, logged. *Check: run on a real Next.js file.*
 5. **TS import resolution** (relative, tsconfig `paths`/`@/`, index files).
 6. **GraphBuilder** over the TS strategy: nodes/edges/status/review order as JSON. Unit tests.
-7. **Webview graph v1**: layered SVG, colors by status, click opens file, sidebar with review order.
+7. **Webview graph** (React Flow + elkjs), in small sub-steps:
+   - 7a. Webview app scaffold (React + `@xyflow/react`, bundled locally with esbuild, no CDN) rendering hardcoded graph JSON.
+   - 7b. Auto layout with `elkjs` (left-to-right: dependencies left, dependents right).
+   - 7c. Custom file-card nodes listing symbols, changed ones highlighted; colors by status (changed / dependent / dependency).
+   - 7d. Interaction: click opens file at line, hover highlights dependency chain both ways and dims the rest, filters by status, minimap.
+   - 7e. Review-order sidebar with "reviewed" checkmarks synced with the graph.
 8. **Live refresh**: file watcher + debounce + analysis cache (by mtime).
 9. **Python strategy** (imports, relative imports, classes/functions, FastAPI router hints). Proves the pattern with a second stack.
 10. **Polish/docs**: "how to add a language" guide, README, packaging with vsce.
@@ -69,6 +74,10 @@ Changed files ordered dependencies-first (understand foundations before consumer
 - Unit tests (vitest) per strategy with fixture files, and for GraphBuilder.
 - Manual: F5 Extension Development Host on a sample Next.js app and a FastAPI app; edit files, confirm graph updates within ~1s and highlights correct nodes/symbols.
 
+## Graph rendering decision
+React Flow renders custom card nodes (file + symbols inside) and gives zoom/pan/minimap/selection for free. Layout is done by `elkjs` (chosen over dagre for better results on larger graphs; may run in a web worker if slow). The webview only receives plain `GraphModel` JSON from the extension host, so the UI library can be swapped without touching any language code.
+
 ## Risks to watch
+- elkjs and React add bundle size to the webview (not the extension host); keep the webview a separate esbuild entry.
 - WASM grammar bundling in a VS Code extension (tackled early in step 4, isolated).
 - Large repos: scope analysis to changed files + 1 hop, cache parses.
