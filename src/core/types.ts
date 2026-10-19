@@ -46,6 +46,21 @@ export interface ParsedFile {
   tree: Tree;
 }
 
+/**
+ * One file after the whole pipeline ran on it: parsed, symbols extracted, and its
+ * imports resolved to other workspace files. This is the input of GraphBuilder.
+ */
+export interface AnalyzedFile {
+  path: string;
+  /** The id of the strategy that analyzed it, e.g. "typescript". */
+  language: string;
+  symbols: SymbolInfo[];
+  /** Workspace files this file imports (already resolved, no duplicates, no external packages). */
+  imports: string[];
+  /** Set by the strategy for notable files, e.g. "Next.js page". */
+  entryPoint?: string;
+}
+
 // --- What changed in git -----------------------------------------------------------
 
 /** A stretch of lines. 1-based and inclusive. */
