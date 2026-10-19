@@ -33,6 +33,8 @@ const options = {
   format: 'cjs',
   target: 'node20',
   external: ['vscode'],
+  // Tree-sitter query files are bundled into the extension as plain strings.
+  loader: { '.scm': 'text' },
   // web-tree-sitter ships an ESM and a CommonJS build. esbuild would pick the ESM one,
   // which uses `import.meta.url` and crashes inside our CommonJS bundle. Force the CJS one.
   alias: { 'web-tree-sitter': './node_modules/web-tree-sitter/tree-sitter.cjs' },

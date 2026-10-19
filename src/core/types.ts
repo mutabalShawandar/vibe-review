@@ -1,3 +1,5 @@
+import type { Tree } from 'web-tree-sitter';
+
 // Shared data shapes. Language-agnostic: nothing here may mention a specific language.
 // All file paths are workspace-relative with forward slashes (e.g. "src/app/page.tsx"),
 // so the same path works on Windows, macOS and Linux.
@@ -35,14 +37,13 @@ export interface FileAnalysis {
 }
 
 /**
- * A file after parsing, handed to a strategy's `extract`.
- * `tree` is opaque to core on purpose: it will be narrowed to the tree-sitter
- * tree type in step 4 when the parser is introduced, keeping core free of parser details.
+ * A file after parsing, handed to a strategy's `extract`. The caller owns `tree`
+ * (and frees it with `tree.delete()`); strategies only read it.
  */
 export interface ParsedFile {
   path: string;
   source: string;
-  tree: unknown;
+  tree: Tree;
 }
 
 // --- What changed in git -----------------------------------------------------------
