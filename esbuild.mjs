@@ -1,6 +1,6 @@
 import { context, build } from 'esbuild';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
-import { bundleOptions } from './esbuild.config.mjs';
+import { bundleOptions, webviewOptions } from './esbuild.config.mjs';
 
 // Every .wasm file the extension needs at runtime, copied next to the bundle.
 // Adding a language: add its grammar file name here (they all come from tree-sitter-wasms).
@@ -29,9 +29,11 @@ function copyWasmFiles() {
 copyWasmFiles();
 
 if (process.argv.includes('--watch')) {
-  const ctx = await context(bundleOptions);
-  await ctx.watch();
+  for (const options of [bundleOptions, webviewOptions]) {
+    const ctx = await context(options);
+    await ctx.watch();
+  }
   console.log('watching...');
 } else {
-  await build(bundleOptions);
+  await Promise.all([build(bundleOptions), build(webviewOptions)]);
 }

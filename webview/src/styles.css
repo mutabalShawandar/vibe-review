@@ -1,0 +1,97 @@
+/* Colors come from the editor theme (--vscode-* variables), so light, dark and
+   high-contrast themes work without extra code. */
+html,
+body,
+#root,
+.app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.scope-toggle button {
+  padding: 4px 12px;
+  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+}
+
+.scope-toggle button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.scope-toggle button:last-child {
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+
+.scope-toggle button[aria-pressed='true'] {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.summary {
+  opacity: 0.8;
+}
+
+.canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+.message {
+  padding: 24px;
+}
+
+.message.error {
+  color: var(--vscode-errorForeground);
+}
+
+/* --- graph nodes (plain boxes for now; step 7c makes them file cards) --- */
+.react-flow__node-default {
+  width: 240px;
+  padding: 8px 10px;
+  border: 2px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.react-flow__node.status-changed {
+  border-color: #e5a000;
+}
+
+.react-flow__node.status-dependent {
+  border-color: #4d9de0;
+}
+
+.react-flow__node.status-dependency {
+  border-style: dashed;
+  border-color: #8a8a8a;
+}
+
+.react-flow__node.status-unchanged {
+  opacity: 0.65;
+}

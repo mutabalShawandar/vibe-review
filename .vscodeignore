@@ -8,3 +8,8 @@ CODE_OF_CONDUCT.md
 esbuild.mjs
 tsconfig.json
 **/*.map
+webview/**
+scripts/**
+test/**
+vitest.config.ts
+esbuild.config.mjs

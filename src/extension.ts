@@ -1,12 +1,12 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { GitChangeProvider } from './changes/GitChangeProvider';
-import { buildGraph } from './core/GraphBuilder';
 import type { GraphScope } from './core/types';
 import { createRegistry } from './languages';
+import { ReviewPanel } from './ui/ReviewPanel';
 import { ParserLoader } from './parser/ParserLoader';
 import { NodeResolveContext } from './workspace/NodeResolveContext';
-import { WorkspaceAnalyzer } from './workspace/WorkspaceAnalyzer';
+import { GraphService } from './workspace/GraphService';
 
 export function activate(context: vscode.ExtensionContext): void {
   // The "Vibe Review" tab in the Output panel; we log what the extension finds there.
@@ -19,16 +19,11 @@ export function activate(context: vscode.ExtensionContext): void {
   // Knows which language strategy handles which file; see src/languages/index.ts.
   const registry = createRegistry();
 
+  // Scans the workspace and builds graphs; its cache is shared by the panel and the debug commands.
+  const graphService = new GraphService(registry, parser);
+
   context.subscriptions.push(
-    vscode.commands.registerCommand('vibeReview.open', () => {
-      const panel = vscode.window.createWebviewPanel(
-        'vibeReview',
-        'Vibe Review',
-        vscode.ViewColumn.Active,
-        {},
-      );
-      panel.webview.html = '<!doctype html><html><body><h1>Vibe Review</h1><p>No graph yet.</p></body></html>';
-    }),
+    vscode.commands.registerCommand('vibeReview.open', () => ReviewPanel.show(context, graphService)),
 
     // Temporary step 3 command: prints git's view of the changes so we can verify them.
     vscode.commands.registerCommand('vibeReview.logChanges', async () => {
@@ -127,30 +122,26 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       try {
-        const graph = await vscode.window.withProgress(
+        const { graph, changeCount, analysis } = await vscode.window.withProgress(
           { location: vscode.ProgressLocation.Notification, title: 'Vibe Review: analyzing workspace' },
           async (progress) => {
-            const started = Date.now();
             let lastPercent = 0;
-            const { files, skipped, stats } = await analyzer(folder.uri.fsPath).analyze((done, total) => {
+            return graphService.build(folder.uri.fsPath, scope, (done, total) => {
               const percent = Math.floor((done / total) * 100);
               progress.report({ increment: percent - lastPercent, message: `${done}/${total} files` });
               lastPercent = percent;
             });
-            const changes = await new GitChangeProvider(folder.uri.fsPath).getChanges();
-
-            output.appendLine(
-              `Analyzed ${files.length} files in ${Date.now() - started} ms, ${skipped.length} skipped, ${changes.length} changed.`,
-            );
-            output.appendLine(
-              `  list files: ${stats.listMs} ms | parse: ${stats.parseMs} ms (${stats.parsedFiles} parsed, ${stats.cachedFiles} from cache) | resolve imports: ${stats.resolveMs} ms`,
-            );
-            for (const problem of skipped) {
-              output.appendLine(`  skipped ${problem.path}: ${problem.reason}`);
-            }
-            return buildGraph(files, changes, scope);
           },
         );
+
+        const { files, skipped, stats } = analysis;
+        output.appendLine(`Analyzed ${files.length} files, ${skipped.length} skipped, ${changeCount} changed.`);
+        output.appendLine(
+          `  list files: ${stats.listMs} ms | parse: ${stats.parseMs} ms (${stats.parsedFiles} parsed, ${stats.cachedFiles} from cache) | resolve imports: ${stats.resolveMs} ms`,
+        );
+        for (const problem of skipped) {
+          output.appendLine(`  skipped ${problem.path}: ${problem.reason}`);
+        }
 
         const summary = graph.nodes.reduce<Record<string, number>>((counts, node) => {
           counts[node.status] = (counts[node.status] ?? 0) + 1;
@@ -173,16 +164,6 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // One analyzer per workspace folder, so its cache survives between runs of a command.
-  const analyzers = new Map<string, WorkspaceAnalyzer>();
-  function analyzer(root: string): WorkspaceAnalyzer {
-    let existing = analyzers.get(root);
-    if (!existing) {
-      existing = new WorkspaceAnalyzer(root, registry, parser);
-      analyzers.set(root, existing);
-    }
-    return existing;
-  }
 }
 
 export function deactivate(): void {}

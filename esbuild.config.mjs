@@ -20,3 +20,20 @@ export const bundleOptions = {
   },
   sourcemap: true,
 };
+
+// The React app shown inside the review panel. It runs in a browser-like webview, not in Node,
+// and is loaded by the panel as dist/webview/main.js plus dist/webview/main.css.
+export const webviewOptions = {
+  entryPoints: { main: 'webview/src/main.tsx' },
+  outdir: 'dist/webview',
+  bundle: true,
+  platform: 'browser',
+  format: 'iife',
+  target: 'es2022',
+  jsx: 'automatic',
+  loader: { '.css': 'css' },
+  // React switches to its smaller production build for this value.
+  define: { 'process.env.NODE_ENV': '"production"' },
+  minify: true,
+  sourcemap: true,
+};
