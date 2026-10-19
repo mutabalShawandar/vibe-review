@@ -55,7 +55,7 @@ describe('bundled extension', () => {
     extension.activate({ subscriptions: [], extensionPath: dir });
 
     expect(registered).toEqual(
-      expect.arrayContaining(['vibeReview.open', 'vibeReview.logChanges', 'vibeReview.analyzeActiveFile']),
+      expect.arrayContaining(['vibeReview.open', 'vibeReview.logChanges', 'vibeReview.analyzeActiveFile', 'vibeReview.buildGraph']),
     );
   });
 });

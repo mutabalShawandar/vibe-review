@@ -31,6 +31,10 @@
       {
         "command": "vibeReview.analyzeActiveFile",
         "title": "Vibe Review: Analyze Active File (debug)"
+      },
+      {
+        "command": "vibeReview.buildGraph",
+        "title": "Vibe Review: Build Graph (debug)"
       }
     ]
   },

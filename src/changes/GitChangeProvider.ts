@@ -1,11 +1,8 @@
-import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { promisify } from 'node:util';
 import type { ChangeSet, FileChange } from '../core/types';
+import { runGit } from '../workspace/git';
 import { parseUnifiedDiff } from './parseUnifiedDiff';
-
-const execFileAsync = promisify(execFile);
 
 /**
  * Asks git "what is different from the last commit right now?" and returns it
@@ -95,12 +92,7 @@ export class GitChangeProvider {
     }
   }
 
-  private async git(args: string[]): Promise<string> {
-    // core.quotepath=false keeps non-ASCII file names readable instead of "\303\244" escapes.
-    const { stdout } = await execFileAsync('git', ['-c', 'core.quotepath=false', ...args], {
-      cwd: this.root,
-      maxBuffer: 64 * 1024 * 1024, // big diffs are normal after an AI rewrites many files
-    });
-    return stdout;
+  private git(args: string[]): Promise<string> {
+    return runGit(this.root, args);
   }
 }

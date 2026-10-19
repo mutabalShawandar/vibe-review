@@ -1,0 +1,177 @@
+import { promises as fs, readFileSync } from 'node:fs';
+import * as path from 'node:path';
+import type { ResolveContext } from '../core/LanguageStrategy';
+import type { StrategyRegistry } from '../core/StrategyRegistry';
+import type { AnalyzedFile, SymbolInfo } from '../core/types';
+import type { ParserLoader } from '../parser/ParserLoader';
+import { listWorkspaceFiles } from './listWorkspaceFiles';
+
+// Larger files are almost always generated or minified bundles, and parsing them is slow.
+const MAX_FILE_BYTES = 1024 * 1024;
+
+// Parsing runs on the extension host thread. Pausing briefly every few files lets
+// VS Code stay responsive during a big first scan.
+const FILES_PER_PAUSE = 25;
+
+export interface AnalysisResult {
+  files: AnalyzedFile[];
+  /** Files that could not be analyzed, with the reason. */
+  skipped: { path: string; reason: string }[];
+  /** Where the time went, to explain a slow scan. */
+  stats: { listMs: number; parseMs: number; resolveMs: number; parsedFiles: number; cachedFiles: number };
+}
+
+/** What we remember about a file between scans, so unchanged files are not parsed again. */
+interface CachedFile {
+  mtimeMs: number;
+  size: number;
+  language: string;
+  symbols: SymbolInfo[];
+  /** Raw import strings. Not resolved here: resolution depends on which OTHER files exist. */
+  specifiers: string[];
+  entryPoint?: string;
+}
+
+/**
+ * Scans the workspace and runs the full per-file pipeline:
+ *   registry -> parser -> strategy.extract -> strategy.resolveImport
+ * The result is the input of buildGraph. Parsing results are cached by file
+ * modification time, so the second scan only re-parses what changed.
+ */
+export class WorkspaceAnalyzer {
+  private readonly cache = new Map<string, CachedFile>();
+
+  /** @param root the workspace folder; all paths are relative to it. */
+  constructor(
+    private readonly root: string,
+    private readonly registry: StrategyRegistry,
+    private readonly parser: ParserLoader,
+  ) {}
+
+  async analyze(onProgress?: (done: number, total: number) => void): Promise<AnalysisResult> {
+    const listStart = Date.now();
+    const listed = await listWorkspaceFiles(this.root);
+    const listMs = Date.now() - listStart;
+    const codeFiles = listed.filter((file) => this.registry.forFile(file) !== undefined);
+
+    const skipped: AnalysisResult['skipped'] = [];
+    const parsed = new Map<string, CachedFile>();
+    let cachedFiles = 0;
+    const parseStart = Date.now();
+
+    for (const [index, file] of codeFiles.entries()) {
+      try {
+        const result = await this.analyzeFile(file);
+        if (result) {
+          parsed.set(file, result.cached);
+          if (result.fromCache) {
+            cachedFiles++;
+          }
+        }
+      } catch (error) {
+        skipped.push({ path: file, reason: error instanceof Error ? error.message : String(error) });
+      }
+
+      onProgress?.(index + 1, codeFiles.length);
+      if ((index + 1) % FILES_PER_PAUSE === 0) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+    }
+
+    const parseMs = Date.now() - parseStart;
+
+    // Forget files that were deleted or became ignored.
+    for (const cached of [...this.cache.keys()]) {
+      if (!parsed.has(cached)) {
+        this.cache.delete(cached);
+      }
+    }
+
+    // Resolution runs on every scan (it is cheap) because it depends on the whole file set.
+    const resolveStart = Date.now();
+    const context = this.resolveContext(new Set(listed));
+    const files = [...parsed].map(([file, info]): AnalyzedFile => {
+      const strategy = this.registry.forId(info.language)!;
+      const imports = new Set<string>();
+      for (const specifier of info.specifiers) {
+        const target = strategy.resolveImport(specifier, file, context);
+        if (target) {
+          imports.add(target);
+        }
+      }
+      return {
+        path: file,
+        language: info.language,
+        symbols: info.symbols,
+        imports: [...imports].sort(),
+        ...(info.entryPoint ? { entryPoint: info.entryPoint } : {}),
+      };
+    });
+
+    const stats = {
+      listMs,
+      parseMs,
+      resolveMs: Date.now() - resolveStart,
+      parsedFiles: parsed.size - cachedFiles,
+      cachedFiles,
+    };
+    return { files, skipped, stats };
+  }
+
+  /** Analyze one file, reusing the cached result if the file has not changed. */
+  private async analyzeFile(file: string): Promise<{ cached: CachedFile; fromCache: boolean } | undefined> {
+    const fullPath = path.join(this.root, file);
+
+    let stat;
+    try {
+      stat = await fs.stat(fullPath);
+    } catch {
+      return undefined; // listed by git but gone from disk (deleted, not yet committed)
+    }
+    if (!stat.isFile() || stat.size > MAX_FILE_BYTES) {
+      return undefined;
+    }
+
+    const cached = this.cache.get(file);
+    if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+      return { cached, fromCache: true };
+    }
+
+    const strategy = this.registry.forFile(file)!;
+    const source = await fs.readFile(fullPath, 'utf8');
+    const tree = await this.parser.parse(strategy.grammarFor(file), source);
+    try {
+      const analysis = strategy.extract({ path: file, source, tree });
+      const result: CachedFile = {
+        mtimeMs: stat.mtimeMs,
+        size: stat.size,
+        language: strategy.id,
+        symbols: analysis.symbols,
+        specifiers: analysis.imports.map((imported) => imported.specifier),
+        entryPoint: strategy.entryPoint?.(file),
+      };
+      this.cache.set(file, result);
+      return { cached: result, fromCache: false };
+    } finally {
+      tree.delete(); // free WASM memory, even if extraction threw
+    }
+  }
+
+  /**
+   * File lookups answered from the git file list instead of the disk: much faster for
+   * thousands of imports, and it means ignored folders (node_modules, build output)
+   * can never be resolved into.
+   */
+  private resolveContext(known: Set<string>): ResolveContext {
+    return {
+      fileExists: (file) => known.has(file),
+      readFile: (file) => {
+        try {
+          return readFileSync(path.join(this.root, file), 'utf8');
+        } catch {
+          return undefined;
+        }
+      },
+    };
+  }
+}

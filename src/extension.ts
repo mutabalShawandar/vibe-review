@@ -1,9 +1,12 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { GitChangeProvider } from './changes/GitChangeProvider';
+import { buildGraph } from './core/GraphBuilder';
+import type { GraphScope } from './core/types';
 import { createRegistry } from './languages';
 import { ParserLoader } from './parser/ParserLoader';
 import { NodeResolveContext } from './workspace/NodeResolveContext';
+import { WorkspaceAnalyzer } from './workspace/WorkspaceAnalyzer';
 
 export function activate(context: vscode.ExtensionContext): void {
   // The "Vibe Review" tab in the Output panel; we log what the extension finds there.
@@ -107,7 +110,79 @@ export function activate(context: vscode.ExtensionContext): void {
         output.appendLine(`Analysis failed: ${error instanceof Error ? error.stack : error}`);
       }
     }),
+
+    // Temporary step 6 command: runs the whole pipeline on the workspace and shows the
+    // diagram data (what the webview will receive) as JSON, so it can be checked by eye.
+    vscode.commands.registerCommand('vibeReview.buildGraph', async () => {
+      const folder = vscode.workspace.workspaceFolders?.[0];
+      if (!folder) {
+        vscode.window.showWarningMessage('Vibe Review: open a folder first.');
+        return;
+      }
+      const scope = (await vscode.window.showQuickPick(['changes', 'full'], {
+        placeHolder: 'Which view? "changes" = changed files and their neighbours, "full" = every file',
+      })) as GraphScope | undefined;
+      if (!scope) {
+        return;
+      }
+
+      try {
+        const graph = await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Vibe Review: analyzing workspace' },
+          async (progress) => {
+            const started = Date.now();
+            let lastPercent = 0;
+            const { files, skipped, stats } = await analyzer(folder.uri.fsPath).analyze((done, total) => {
+              const percent = Math.floor((done / total) * 100);
+              progress.report({ increment: percent - lastPercent, message: `${done}/${total} files` });
+              lastPercent = percent;
+            });
+            const changes = await new GitChangeProvider(folder.uri.fsPath).getChanges();
+
+            output.appendLine(
+              `Analyzed ${files.length} files in ${Date.now() - started} ms, ${skipped.length} skipped, ${changes.length} changed.`,
+            );
+            output.appendLine(
+              `  list files: ${stats.listMs} ms | parse: ${stats.parseMs} ms (${stats.parsedFiles} parsed, ${stats.cachedFiles} from cache) | resolve imports: ${stats.resolveMs} ms`,
+            );
+            for (const problem of skipped) {
+              output.appendLine(`  skipped ${problem.path}: ${problem.reason}`);
+            }
+            return buildGraph(files, changes, scope);
+          },
+        );
+
+        const summary = graph.nodes.reduce<Record<string, number>>((counts, node) => {
+          counts[node.status] = (counts[node.status] ?? 0) + 1;
+          return counts;
+        }, {});
+        output.appendLine(
+          `Graph (${scope}): ${graph.nodes.length} nodes ${JSON.stringify(summary)}, ${graph.edges.length} edges, review order: ${graph.reviewOrder.length} files`,
+        );
+        output.show(true);
+
+        const document = await vscode.workspace.openTextDocument({
+          language: 'json',
+          content: JSON.stringify(graph, null, 2),
+        });
+        await vscode.window.showTextDocument(document, { preview: false });
+      } catch (error) {
+        output.appendLine(`Build graph failed: ${error instanceof Error ? error.stack : error}`);
+        output.show(true);
+      }
+    }),
   );
+
+  // One analyzer per workspace folder, so its cache survives between runs of a command.
+  const analyzers = new Map<string, WorkspaceAnalyzer>();
+  function analyzer(root: string): WorkspaceAnalyzer {
+    let existing = analyzers.get(root);
+    if (!existing) {
+      existing = new WorkspaceAnalyzer(root, registry, parser);
+      analyzers.set(root, existing);
+    }
+    return existing;
+  }
 }
 
 export function deactivate(): void {}
