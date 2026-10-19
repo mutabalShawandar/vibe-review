@@ -100,6 +100,15 @@ export function activate(context: vscode.ExtensionContext): void {
             output.appendLine(
               `  line ${String(imported.line).padEnd(4)} ${imported.specifier}  ->  ${target ?? '(external or not found)'}`,
             );
+            // The names this import takes, e.g. "getUsers, User (type), default as Page, * as db".
+            if (imported.bindings.length > 0) {
+              const names = imported.bindings.map((binding) => {
+                const name = binding.imported === '*' ? '*' : binding.imported;
+                const alias = binding.local && binding.local !== binding.imported ? ` as ${binding.local}` : '';
+                return `${name}${alias}${binding.typeOnly ? ' (type)' : ''}${binding.reexport ? ' (re-export)' : ''}`;
+              });
+              output.appendLine(`        names: ${names.join(', ')}`);
+            }
           }
         } finally {
           tree.delete(); // free WASM memory, even if extraction threw

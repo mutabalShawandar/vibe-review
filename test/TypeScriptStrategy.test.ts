@@ -130,6 +130,57 @@ describe('TypeScriptStrategy.extract', () => {
     expect(symbols.every((s) => s.members === undefined)).toBe(true);
   });
 
+  describe('import bindings', () => {
+    // Turns each import into "imported->local" strings, easy to compare at a glance.
+    const bindingsOf = async (fixture: string) =>
+      Object.fromEntries(
+        (await analyze(fixture)).imports.map((i) => [
+          i.specifier,
+          i.bindings.map((b) => {
+            const flags = (b.typeOnly ? ' type' : '') + (b.reexport ? ' reexport' : '');
+            return `${b.imported}->${b.local || '(none)'}${flags}`;
+          }),
+        ]),
+      );
+
+    it('reads default, named, aliased and namespace imports', async () => {
+      const bindings = await bindingsOf('imports.tsx');
+      expect(bindings['react']).toEqual(['default->React', 'useState->useS', 'FC->FC type']);
+      expect(bindings['./db']).toEqual(['*->db']);
+    });
+
+    it('marks names of an `import type` as type-only', async () => {
+      const bindings = await bindingsOf('imports.tsx');
+      expect(bindings['./types']).toEqual(['User->User type', 'Role->Role type']);
+    });
+
+    it('gives a side-effect import no names', async () => {
+      const bindings = await bindingsOf('imports.tsx');
+      expect(bindings['./side.css']).toEqual([]);
+    });
+
+    it('reads re-exports', async () => {
+      const bindings = await bindingsOf('imports.tsx');
+      expect(bindings['./x']).toEqual(['a->b reexport', 'c->c reexport']);
+      expect(bindings['./y']).toEqual(['*->(none) reexport']);
+      expect(bindings['./z']).toEqual(['*->ns reexport']);
+    });
+
+    it('reads import = require, and require() with a name or destructuring', async () => {
+      const bindings = await bindingsOf('imports.tsx');
+      expect(bindings['fs']).toEqual(['*->fs']);
+      expect(bindings['./m']).toEqual(['one->one', 'two->second']);
+      expect(bindings['./lazy']).toEqual(['*->lazy']);
+    });
+
+    it('reads dynamic import(), with or without a name', async () => {
+      const bindings = await bindingsOf('imports.tsx');
+      expect(bindings['./dynamic']).toEqual(['*->lazyModule']);
+      expect(bindings['./helpers']).toEqual(['helper->helper']);
+      expect(bindings['./bare']).toEqual(['*->(none)']);
+    });
+  });
+
   it('returns nothing for an empty file', async () => {
     const tree = await loader.parse(strategy.grammarFor('empty.ts'), '');
     try {

@@ -1,6 +1,7 @@
 import { Query, type Language, type Node } from 'web-tree-sitter';
 import type { LanguageStrategy, ResolveContext } from '../../core/LanguageStrategy';
 import type { FileAnalysis, ImportRef, ParsedFile, SymbolInfo, SymbolKind } from '../../core/types';
+import { bindingsFor } from './bindings';
 import importsQuery from './queries/imports.scm';
 import symbolsQuery from './queries/symbols.scm';
 import { resolveTypeScriptImport } from './resolveImport';
@@ -93,7 +94,11 @@ export class TypeScriptStrategy implements LanguageStrategy {
     const imports: ImportRef[] = [];
     for (const capture of query.captures(root)) {
       if (capture.name === 'source') {
-        imports.push({ specifier: capture.node.text, line: capture.node.startPosition.row + 1 });
+        imports.push({
+          specifier: capture.node.text,
+          line: capture.node.startPosition.row + 1,
+          bindings: bindingsFor(capture.node),
+        });
       }
     }
     return imports.sort((a, b) => a.line - b.line);

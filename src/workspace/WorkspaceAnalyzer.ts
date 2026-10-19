@@ -2,7 +2,7 @@ import { promises as fs, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import type { ResolveContext } from '../core/LanguageStrategy';
 import type { StrategyRegistry } from '../core/StrategyRegistry';
-import type { AnalyzedFile, SymbolInfo } from '../core/types';
+import type { AnalyzedFile, ImportBinding, ImportRef, ResolvedImport, SymbolInfo } from '../core/types';
 import type { ParserLoader } from '../parser/ParserLoader';
 import { listWorkspaceFiles } from './listWorkspaceFiles';
 
@@ -12,6 +12,10 @@ const MAX_FILE_BYTES = 1024 * 1024;
 // Parsing runs on the extension host thread. Pausing briefly every few files lets
 // VS Code stay responsive during a big first scan.
 const FILES_PER_PAUSE = 25;
+
+function sameBinding(a: ImportBinding, b: ImportBinding): boolean {
+  return a.imported === b.imported && a.local === b.local && a.typeOnly === b.typeOnly && a.reexport === b.reexport;
+}
 
 export interface AnalysisResult {
   files: AnalyzedFile[];
@@ -27,8 +31,8 @@ interface CachedFile {
   size: number;
   language: string;
   symbols: SymbolInfo[];
-  /** Raw import strings. Not resolved here: resolution depends on which OTHER files exist. */
-  specifiers: string[];
+  /** Imports as written. Not resolved here: resolution depends on which OTHER files exist. */
+  imports: ImportRef[];
   entryPoint?: string;
 }
 
@@ -92,18 +96,27 @@ export class WorkspaceAnalyzer {
     const context = this.resolveContext(new Set(listed));
     const files = [...parsed].map(([file, info]): AnalyzedFile => {
       const strategy = this.registry.forId(info.language)!;
-      const imports = new Set<string>();
-      for (const specifier of info.specifiers) {
-        const target = strategy.resolveImport(specifier, file, context);
-        if (target) {
-          imports.add(target);
+      // One entry per target file: a file imported by two statements gets both their names.
+      const byTarget = new Map<string, ResolvedImport>();
+      for (const imported of info.imports) {
+        const target = strategy.resolveImport(imported.specifier, file, context);
+        if (!target) {
+          continue; // an npm package, or something outside the workspace
         }
+        const entry = byTarget.get(target) ?? { file: target, bindings: [] };
+        for (const binding of imported.bindings) {
+          if (!entry.bindings.some((known) => sameBinding(known, binding))) {
+            entry.bindings.push(binding);
+          }
+        }
+        byTarget.set(target, entry);
       }
+      const imports = [...byTarget.values()].sort((a, b) => a.file.localeCompare(b.file));
       return {
         path: file,
         language: info.language,
         symbols: info.symbols,
-        imports: [...imports].sort(),
+        imports,
         ...(info.entryPoint ? { entryPoint: info.entryPoint } : {}),
       };
     });
@@ -147,7 +160,7 @@ export class WorkspaceAnalyzer {
         size: stat.size,
         language: strategy.id,
         symbols: analysis.symbols,
-        specifiers: analysis.imports.map((imported) => imported.specifier),
+        imports: analysis.imports,
         entryPoint: strategy.entryPoint?.(file),
       };
       this.cache.set(file, result);

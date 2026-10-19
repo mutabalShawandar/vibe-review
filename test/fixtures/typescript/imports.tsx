@@ -1,0 +1,13 @@
+import React, { useState as useS, type FC } from 'react';
+import * as db from './db';
+import type { User, Role } from './types';
+import './side.css';
+export { a as b, c } from './x';
+export * from './y';
+export * as ns from './z';
+import fs = require('fs');
+const { one, two: second } = require('./m');
+const lazy = require('./lazy');
+const lazyModule = await import('./dynamic');
+const { helper } = await import('./helpers');
+import('./bare').then(() => {});

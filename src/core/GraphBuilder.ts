@@ -32,7 +32,7 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
   // Arrows between files: `from` imports `to`. Imports of files we did not analyze are dropped.
   const importedBy = new Map<string, Set<string>>();
   for (const file of files) {
-    for (const target of file.imports) {
+    for (const { file: target } of file.imports) {
       if (target !== file.path && byPath.has(target)) {
         let importers = importedBy.get(target);
         if (!importers) {
@@ -50,7 +50,7 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
     }
     // Checked before "dependency": a file that imports a change can break because of it,
     // which matters more to a reviewer than a file that only provides context.
-    if (file.imports.some((target) => changedRanges.has(target))) {
+    if (file.imports.some((imported) => changedRanges.has(imported.file))) {
       return 'dependent';
     }
     if ([...(importedBy.get(file.path) ?? [])].some((importer) => changedRanges.has(importer))) {
@@ -79,7 +79,7 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
   const shown = new Set(nodes.map((node) => node.id));
   const edges: GraphEdge[] = [];
   for (const file of files) {
-    for (const target of file.imports) {
+    for (const { file: target } of file.imports) {
       if (target !== file.path && shown.has(file.path) && shown.has(target)) {
         edges.push({ from: file.path, to: target });
       }
@@ -116,7 +116,7 @@ function orderForReview(
 ): string[] {
   const isChanged = new Set(changed);
   const dependenciesOf = (path: string) =>
-    (byPath.get(path)?.imports ?? []).filter((target) => isChanged.has(target) && target !== path);
+    (byPath.get(path)?.imports ?? []).map((imported) => imported.file).filter((target) => isChanged.has(target) && target !== path);
   const importerCount = (path: string) => importedBy.get(path)?.size ?? 0;
 
   const remaining = new Set(changed);

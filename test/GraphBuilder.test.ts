@@ -7,7 +7,7 @@ const file = (path: string, imports: string[] = [], symbols: SymbolInfo[] = []):
   path,
   language: 'typescript',
   symbols,
-  imports,
+  imports: imports.map((target) => ({ file: target, bindings: [] })),
 });
 
 const modified = (path: string, ...ranges: [number, number][]): ChangeSet[number] => ({

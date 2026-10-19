@@ -47,7 +47,9 @@ describe('WorkspaceAnalyzer', () => {
     expect(skipped).toEqual([]);
     const byPath = Object.fromEntries(files.map((f) => [f.path, f]));
     expect(Object.keys(byPath).sort()).toEqual(['src/lib/db.ts', 'src/page.tsx']);
-    expect(byPath['src/page.tsx'].imports).toEqual(['src/lib/db.ts']); // "react" is external
+    expect(byPath['src/page.tsx'].imports).toEqual([
+      { file: 'src/lib/db.ts', bindings: [{ imported: 'db', local: 'db', typeOnly: false, reexport: false }] },
+    ]); // "react" is external
     expect(byPath['src/page.tsx'].symbols.map((s) => s.name)).toEqual(['Page']);
     expect(byPath['src/lib/db.ts'].language).toBe('typescript');
   });
@@ -125,7 +127,7 @@ describe('WorkspaceAnalyzer', () => {
 
     write('b.ts', 'export const b = 1;\n');
     const { files } = await scanner.analyze();
-    expect(files.find((f) => f.path === 'a.ts')!.imports).toEqual(['b.ts']);
+    expect(files.find((f) => f.path === 'a.ts')!.imports.map((i) => i.file)).toEqual(['b.ts']);
   });
 
   it('reports progress', async () => {

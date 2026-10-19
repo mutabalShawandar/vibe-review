@@ -39,12 +39,37 @@ export interface SymbolInfo {
 }
 
 /**
+ * One name an import brings in. For `import { getUsers as fetchUsers } from './users'`:
+ *   { imported: 'getUsers', local: 'fetchUsers' }
+ * `imported` is the name in the OTHER file; `local` is the name used in THIS file.
+ */
+export interface ImportBinding {
+  /** Name in the imported file: a symbol name, 'default', or '*' for the whole module. */
+  imported: string;
+  /** Name used in this file. Empty when no name is created, e.g. `export * from './x'`. */
+  local: string;
+  /** Imported only as a type (`import type`), so it exists only at compile time. */
+  typeOnly: boolean;
+  /** A re-export (`export { a } from './x'`): passes the name along instead of using it. */
+  reexport: boolean;
+}
+
+/**
  * An import exactly as written in source, before it is resolved to a file.
- * e.g. `import x from "./utils"` -> { specifier: "./utils", line: 1 }
+ * e.g. `import { a } from "./utils"` -> { specifier: "./utils", line: 1, bindings: [{ imported: 'a', ... }] }
  */
 export interface ImportRef {
   specifier: string;
   line: number;
+  /** The names it brings in. Empty for a side-effect import such as `import './styles.css'`. */
+  bindings: ImportBinding[];
+}
+
+/** An import after resolution: which workspace file it points to and which names it takes from it. */
+export interface ResolvedImport {
+  file: string;
+  /** Every binding from every import statement that points at this file, without duplicates. */
+  bindings: ImportBinding[];
 }
 
 /** What a strategy extracts from one file: what it declares and what it imports. */
@@ -72,8 +97,8 @@ export interface AnalyzedFile {
   /** The id of the strategy that analyzed it, e.g. "typescript". */
   language: string;
   symbols: SymbolInfo[];
-  /** Workspace files this file imports (already resolved, no duplicates, no external packages). */
-  imports: string[];
+  /** Workspace files this file imports, with the names taken from each (one entry per file, no external packages). */
+  imports: ResolvedImport[];
   /** Set by the strategy for notable files, e.g. "Next.js page". */
   entryPoint?: string;
 }
