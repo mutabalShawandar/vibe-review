@@ -3,6 +3,14 @@
 ## Context
 AI-generated ("vibe coded") changes land fast and reviewers don't know where to start. The extension shows the current git changes as a live dependency diagram (files, with their classes/interfaces/functions inside), highlights what changed, what depends on it, and suggests a review order. Empty project, built from scratch.
 
+## Vision
+The ultimate goal: an extension that runs next to Claude Code (or any coding agent) and makes vibe coding a **visual process**. While an agent edits the project, the reviewer watches the change appear as a live class-diagram-like graph and always knows where to start reviewing.
+
+What this means for the design:
+- **Agent-agnostic by construction.** Changes come from the git working tree, so any tool that writes files works. Agent-specific features are optional layers on top, never required.
+- **Live is the point.** Step 8 (live refresh) is core, not polish: the graph must update as files change, without losing the reviewer's place (selected card, "reviewed" marks, zoom).
+- **Ideas for after v1, not committed to:** highlight the files the agent is touching right now; show only "changes since the last prompt" (a checkpoint baseline instead of HEAD); an integration with Claude Code (hooks or its IDE connection) to learn which files were edited; sending a review comment on a symbol back to the agent as a prompt.
+
 ## Working rule
 You stay in the picture: every step below is small, runnable, and approved by you before the next one starts.
 
@@ -58,11 +66,16 @@ Project is open source, so contributor conventions exist from day one:
 5. **TS import resolution** (relative, tsconfig `paths`/`@/`, index files).
 6. **GraphBuilder** over the TS strategy: nodes/edges/status/review order as JSON. Unit tests.
 7. **Webview graph** (React Flow + elkjs), in small sub-steps:
-   - 7a. Webview app scaffold (React + `@xyflow/react`, bundled locally with esbuild, no CDN) rendering hardcoded graph JSON.
-   - 7b. Auto layout with `elkjs` (left-to-right: dependencies left, dependents right).
-   - 7c. Custom file-card nodes listing symbols, changed ones highlighted; colors by status (changed / dependent / dependency).
-   - 7d. Interaction: click opens file at line, hover highlights dependency chain both ways and dims the rest, filters by status, minimap.
-   - 7e. Review-order sidebar with "reviewed" checkmarks synced with the graph.
+   - 7a. Webview app scaffold (React + `@xyflow/react`, bundled locally with esbuild, no CDN). *Done.*
+   - 7b. Auto layout with `elkjs` (left-to-right: dependencies left, dependents right). *Done.*
+   - 7c. **Richer extraction, so cards can look like a class diagram** (core + strategy, no UI yet):
+     - 7c-1. Members and kinds: `SymbolInfo.members` (methods and properties of classes, members of interfaces), new kinds `method`, `property`, `component` (PascalCase function or arrow that returns JSX) and `hook` (`useX`).
+     - 7c-2. Import bindings: each import records which names it brings in (named, default, namespace, type-only), not just the module.
+     - 7c-3. Usage inside files: for each top-level symbol, which imported names it references. The strategy reports raw references; core matches them against the bindings, so the matching logic is language-independent.
+     - 7c-4. GraphBuilder produces symbol-to-symbol links (`GraphEdge.uses: { fromSymbol, toSymbol }[]`) and applies relevance: changed files list all their symbols (changed ones flagged), connected files list only the symbols used by or from the change.
+   - 7d. **Class-diagram cards** (webview): header with file name and folder, compartments by kind (classes with methods and properties, components, hooks, functions, types), changed symbols highlighted, a connection point per symbol so arrows run from the exact symbol that uses something to the exact symbol it uses. Card height computed for elkjs.
+   - 7e. **Where to start**: review-order sidebar (one-line reason per file), number badges and a "start here" mark on the graph, "reviewed" checkmarks, click a file or symbol to open it at that line. Connected (dependent/dependency) files drawn dimmer.
+   - 7f. Interaction: hover highlights a chain of arrows and dims the rest, filters by status, minimap, collapsible folder groups in the full-system view, scope toggle polish.
 8. **Live refresh**: file watcher + debounce + analysis cache (by mtime).
 9. **Python strategy** (imports, relative imports, classes/functions, FastAPI router hints). Proves the pattern with a second stack.
 10. **Polish/docs**: "how to add a language" guide, README, packaging with vsce.
@@ -75,6 +88,9 @@ The diagram has a toggle between two scopes (`GraphScope` in `core/types.ts`):
 `GraphBuilder.build(changes, scope)` produces either model from the same cached analysis, so toggling is cheap and the logic stays in core (testable), not in the webview. The webview sends a `setScope` message; the host rebuilds and replies. Implemented in step 6 (builder) and 7d (toggle). The full scope needs a workspace scan, so it relies on the step 8 analysis cache and excludes `node_modules`, build output and anything in `.gitignore`.
 
 **Large graphs:** in the full view, files are grouped by folder (collapsible groups, collapsed by default beyond a size threshold). Grouping is derived from the node `id` path in the webview, and elkjs supports hierarchical layout, so no extra data is needed in `GraphModel`. Done in step 7.
+
+## Class-diagram view (decided)
+Arrows are **symbol to symbol**: an arrow starts at the function/class/component that uses something and ends at the symbol it uses in the other file. Cards are **relevance-based**: changed files show everything they declare; connected files show only the symbols involved in the link to the change. Usage is detected by scanning the identifiers inside each symbol for imported names (approximate: it does not model shadowing or dynamic access, and it will be documented as such). Strategies stay language-specific only where they must be (reading the syntax tree); linking and filtering live in core.
 
 ## Review-order heuristic (step 6)
 Changed files ordered dependencies-first (understand foundations before consumers), ties broken by number of dependents (largest blast radius first); strategy entry-point hints surface routes/pages.
