@@ -1,0 +1,40 @@
+{
+  "name": "vibe-review",
+  "displayName": "Vibe Review",
+  "description": "Live dependency diagram of your git changes, so you know where to start reviewing AI-generated code.",
+  "version": "0.0.1",
+  "license": "MIT",
+  "publisher": "mutabalShawandar",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mutabalShawandar/vibe-review.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "vibeReview.open",
+        "title": "Vibe Review: Open"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0"
+  }
+}
