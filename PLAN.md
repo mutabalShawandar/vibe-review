@@ -67,6 +67,15 @@ Project is open source, so contributor conventions exist from day one:
 9. **Python strategy** (imports, relative imports, classes/functions, FastAPI router hints). Proves the pattern with a second stack.
 10. **Polish/docs**: "how to add a language" guide, README, packaging with vsce.
 
+## Two views: changes and full system
+The diagram has a toggle between two scopes (`GraphScope` in `core/types.ts`):
+- **changes** (default): changed files + direct dependents/dependencies.
+- **full**: every analyzed file in the workspace, with changed files highlighted and untouched ones as `unchanged`.
+
+`GraphBuilder.build(changes, scope)` produces either model from the same cached analysis, so toggling is cheap and the logic stays in core (testable), not in the webview. The webview sends a `setScope` message; the host rebuilds and replies. Implemented in step 6 (builder) and 7d (toggle). The full scope needs a workspace scan, so it relies on the step 8 analysis cache and excludes `node_modules`, build output and anything in `.gitignore`.
+
+**Large graphs:** in the full view, files are grouped by folder (collapsible groups, collapsed by default beyond a size threshold). Grouping is derived from the node `id` path in the webview, and elkjs supports hierarchical layout, so no extra data is needed in `GraphModel`. Done in step 7.
+
 ## Review-order heuristic (step 6)
 Changed files ordered dependencies-first (understand foundations before consumers), ties broken by number of dependents (largest blast radius first); strategy entry-point hints surface routes/pages.
 
