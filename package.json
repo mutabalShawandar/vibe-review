@@ -23,18 +23,24 @@
       {
         "command": "vibeReview.open",
         "title": "Vibe Review: Open"
+      },
+      {
+        "command": "vibeReview.logChanges",
+        "title": "Vibe Review: Log Changes (debug)"
       }
     ]
   },
   "scripts": {
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.43",
     "@types/vscode": "^1.90.0",
     "esbuild": "^0.25.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
   }
 }
