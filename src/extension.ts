@@ -73,12 +73,15 @@ export function activate(context: vscode.ExtensionContext): void {
       try {
         const started = Date.now();
         const tree = await parser.parse(grammar, document.getText());
-        const root = tree.rootNode;
-        output.appendLine(
-          `Parsed ${path.basename(document.fileName)} with ${grammar} in ${Date.now() - started} ms: ` +
-            `root=${root.type}, top-level nodes=${root.namedChildCount}, syntax errors=${root.hasError}`,
-        );
-        tree.delete(); // free WASM memory
+        try {
+          const root = tree.rootNode;
+          output.appendLine(
+            `Parsed ${path.basename(document.fileName)} with ${grammar} in ${Date.now() - started} ms: ` +
+              `root=${root.type}, top-level nodes=${root.namedChildCount}, syntax errors=${root.hasError}`,
+          );
+        } finally {
+          tree.delete(); // free WASM memory, even if reading the tree or logging threw
+        }
       } catch (error) {
         output.appendLine(`Parse failed: ${error instanceof Error ? error.stack : error}`);
       }

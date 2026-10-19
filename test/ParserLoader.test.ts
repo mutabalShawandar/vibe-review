@@ -33,3 +33,20 @@ describe('ParserLoader', () => {
     expect(tree.rootNode.hasError).toBe(true);
   });
 });
+
+describe('ParserLoader failure handling', () => {
+  it('retries a grammar after a failed load instead of caching the failure', async () => {
+    let failNext = true;
+    const flaky = new ParserLoader((name) => {
+      if (name === 'tree-sitter-python.wasm' && failNext) {
+        failNext = false;
+        return path.join(nodeModules, 'does-not-exist.wasm'); // first attempt: file missing
+      }
+      return resolveWasm(name);
+    });
+
+    await expect(flaky.parse('tree-sitter-python.wasm', 'x = 1\n')).rejects.toThrow();
+    const tree = await flaky.parse('tree-sitter-python.wasm', 'x = 1\n');
+    expect(tree.rootNode.type).toBe('module');
+  });
+});

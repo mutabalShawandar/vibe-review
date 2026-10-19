@@ -24,9 +24,14 @@ export class ParserLoader {
 
     // A Parser is cheap and holds state for one parse, so make a fresh one each time.
     const parser = new Parser();
-    parser.setLanguage(language);
-    const tree = parser.parse(source);
-    parser.delete(); // WASM memory is not garbage collected; free it explicitly
+    let tree: Tree | null;
+    try {
+      parser.setLanguage(language);
+      tree = parser.parse(source);
+    } finally {
+      // WASM memory is not garbage collected; free it explicitly, even if parsing threw.
+      parser.delete();
+    }
 
     if (!tree) {
       throw new Error(`tree-sitter could not parse the source with ${grammarFile}`);
@@ -37,8 +42,12 @@ export class ParserLoader {
   private loadGrammar(grammarFile: string): Promise<Language> {
     let loading = this.grammars.get(grammarFile);
     if (!loading) {
-      loading = this.initRuntime().then(() => Language.load(this.resolveWasm(grammarFile)));
-      this.grammars.set(grammarFile, loading);
+      const attempt = this.initRuntime().then(() => Language.load(this.resolveWasm(grammarFile)));
+      // A failed load must not stay cached, or one transient error would break this
+      // grammar until the extension reloads. Dropping it lets the next call retry.
+      attempt.catch(() => this.grammars.delete(grammarFile));
+      this.grammars.set(grammarFile, attempt);
+      loading = attempt;
     }
     return loading;
   }
@@ -46,7 +55,12 @@ export class ParserLoader {
   private initRuntime(): Promise<void> {
     // `locateFile` tells the runtime where to find its own .wasm; without it the runtime
     // looks next to the bundled script, which breaks once everything is bundled.
-    this.runtimeReady ??= Parser.init({ locateFile: (name: string) => this.resolveWasm(name) });
+    if (!this.runtimeReady) {
+      const attempt = Parser.init({ locateFile: (name: string) => this.resolveWasm(name) });
+      // Same as for grammars: forget a failed start so the next call retries it.
+      attempt.catch(() => (this.runtimeReady = undefined));
+      this.runtimeReady = attempt;
+    }
     return this.runtimeReady;
   }
 }
