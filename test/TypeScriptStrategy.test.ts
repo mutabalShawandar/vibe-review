@@ -48,9 +48,9 @@ describe('TypeScriptStrategy.extract', () => {
     ]);
     expect(summary(symbols)).toEqual([
       'variable PAGE_SIZE',
-      'function UsersPage', // `export default async function`
+      'component UsersPage', // `export default async function` that returns JSX
       'variable dynamic',
-      'function Helper',
+      'component Helper',
     ]);
   });
 
@@ -73,7 +73,7 @@ describe('TypeScriptStrategy.extract', () => {
     expect(imports.map((i) => i.specifier)).toEqual(['react', 'fs']); // import + require
     expect(summary(symbols)).toEqual([
       'variable fs', // const fs = require('fs') is a plain variable
-      'function useCounter',
+      'hook useCounter', // arrow function named useXxx
       'variable MAX',
       'variable MIN',
       'class Store', // export default class
@@ -94,6 +94,40 @@ describe('TypeScriptStrategy.extract', () => {
       // `declare const ambient` is intentionally not listed: ambient declarations only
       // describe types for code defined elsewhere.
     ]);
+  });
+
+  it('lists the methods and properties of classes and interfaces', async () => {
+    const { symbols } = await analyze('service.ts');
+    const members = (name: string) => symbols.find((s) => s.name === name)?.members?.map((m) => m.kind + ' ' + m.name);
+
+    expect(summary(symbols)).toEqual(['interface Repository', 'class UserService', 'class Base']);
+    expect(members('Repository')).toEqual([
+      'property name',
+      'property size', // optional and readonly are still properties
+      'method find',
+      // the index signature [key: string] is not a named member
+    ]);
+    expect(members('UserService')).toEqual([
+      'property name',
+      'property cache',
+      'property instance', // static field
+      'method constructor',
+      'method find',
+      'method size', // getter and setter are listed once
+      'method create', // static method
+    ]);
+    expect(members('Base')).toEqual(['method run']); // abstract method
+  });
+
+  it('gives members their own line ranges', async () => {
+    const { symbols } = await analyze('service.ts');
+    const find = symbols.find((s) => s.name === 'UserService')!.members!.find((m) => m.name === 'find');
+    expect(find).toMatchObject({ startLine: 17, endLine: 19 });
+  });
+
+  it('does not give functions or variables members', async () => {
+    const { symbols } = await analyze('page.tsx');
+    expect(symbols.every((s) => s.members === undefined)).toBe(true);
   });
 
   it('returns nothing for an empty file', async () => {

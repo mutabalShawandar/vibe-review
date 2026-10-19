@@ -6,11 +6,26 @@ import type { Tree } from 'web-tree-sitter';
 
 // --- What a strategy reads out of ONE file ----------------------------------------
 
-/** The kinds of top-level declarations we show inside a file card. */
-export type SymbolKind = 'class' | 'interface' | 'function' | 'type' | 'enum' | 'variable';
+/**
+ * The kinds of declarations we show inside a file card.
+ *   method, property - members inside a class or interface
+ *   component        - a UI component (e.g. a React function that returns JSX)
+ *   hook             - a reusable stateful function (e.g. React's useSomething)
+ */
+export type SymbolKind =
+  | 'class'
+  | 'interface'
+  | 'function'
+  | 'type'
+  | 'enum'
+  | 'variable'
+  | 'component'
+  | 'hook'
+  | 'method'
+  | 'property';
 
 /**
- * A top-level declaration in a file, e.g. `export class UserService {...}`.
+ * A declaration in a file, e.g. `export class UserService {...}`.
  * Lines are 1-based and inclusive. The line range is what lets us decide later
  * whether the symbol was touched by a git change.
  */
@@ -19,6 +34,8 @@ export interface SymbolInfo {
   kind: SymbolKind;
   startLine: number;
   endLine: number;
+  /** For classes and interfaces: their methods and properties, in source order. */
+  members?: SymbolInfo[];
 }
 
 /**
@@ -101,8 +118,10 @@ export type GraphScope = 'changes' | 'full';
 export type NodeStatus = 'changed' | 'dependent' | 'dependency' | 'unchanged';
 
 /** A symbol as shown on a card; `changed` is true if a git change overlaps its lines. */
-export interface GraphSymbol extends SymbolInfo {
+export interface GraphSymbol extends Omit<SymbolInfo, 'members'> {
   changed: boolean;
+  /** Members of a class or interface, each with its own `changed` flag. */
+  members?: GraphSymbol[];
 }
 
 /** One file card in the diagram. */

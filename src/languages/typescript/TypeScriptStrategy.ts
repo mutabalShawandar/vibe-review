@@ -8,6 +8,18 @@ import { resolveTypeScriptImport } from './resolveImport';
 // The capture names in symbols.scm that mark a whole declaration, one per symbol kind.
 const SYMBOL_KINDS: readonly SymbolKind[] = ['class', 'interface', 'function', 'type', 'enum', 'variable'];
 
+// Syntax-tree node types inside a class body or interface body that we list as members.
+const MEMBER_KINDS: Record<string, SymbolKind> = {
+  method_definition: 'method', // doSomething() {} and constructor() {}
+  abstract_method_signature: 'method', // abstract run(): void
+  method_signature: 'method', // interface: find(id: string): User
+  public_field_definition: 'property', // class field: items = []
+  property_signature: 'property', // interface: name: string
+};
+
+// JSX in a function or variable is what makes it a UI component.
+const JSX_NODES = ['jsx_element', 'jsx_self_closing_element', 'jsx_fragment'];
+
 /** TypeScript and JavaScript (including JSX/TSX), which is what Next.js projects are made of. */
 export class TypeScriptStrategy implements LanguageStrategy {
   readonly id = 'typescript';
@@ -56,17 +68,20 @@ export class TypeScriptStrategy implements LanguageStrategy {
       }
 
       const node = declaration.node;
+      const kind = refineKind(declaration.name as SymbolKind, name, node);
+      const members = kind === 'class' || kind === 'interface' ? membersOf(node) : [];
       const symbol: SymbolInfo = {
         name,
-        kind: declaration.name as SymbolKind,
+        kind,
         startLine: node.startPosition.row + 1,
         endLine: lastLineOf(node),
+        ...(members.length > 0 ? { members } : {}),
       };
 
       // `const Page = () => {}` matches both the "function" and the generic "variable"
-      // pattern. Keep the more specific "function".
+      // pattern. Keep the more specific one (anything but a plain variable).
       const key = `${name}@${symbol.startLine}`;
-      if (found.get(key)?.kind !== 'function') {
+      if (found.get(key) === undefined || found.get(key)!.kind === 'variable') {
         found.set(key, symbol);
       }
     }
@@ -83,6 +98,51 @@ export class TypeScriptStrategy implements LanguageStrategy {
     }
     return imports.sort((a, b) => a.line - b.line);
   }
+}
+
+/**
+ * Decide whether a function or variable is really a React-style hook or component.
+ * These are naming conventions React itself relies on:
+ *   useSomething           -> hook
+ *   PascalCase + has JSX   -> component (also covers `const Button = forwardRef(...)`)
+ * Everything else keeps the kind the query found.
+ */
+function refineKind(kind: SymbolKind, name: string, node: Node): SymbolKind {
+  if (kind !== 'function' && kind !== 'variable') {
+    return kind;
+  }
+  if (/^use[A-Z0-9]/.test(name)) {
+    return 'hook';
+  }
+  if (/^[A-Z]/.test(name) && node.descendantsOfType(JSX_NODES).length > 0) {
+    return 'component';
+  }
+  return kind;
+}
+
+/** Methods and properties declared directly inside a class or interface. */
+function membersOf(node: Node): SymbolInfo[] {
+  // For `export class X {}` the query captured the export statement; the class is inside it.
+  const declaration = node.type === 'export_statement' ? node.childForFieldName('declaration') : node;
+  const body = declaration?.childForFieldName('body');
+  if (!body) {
+    return [];
+  }
+
+  const members = new Map<string, SymbolInfo>();
+  for (const child of body.namedChildren) {
+    const kind = child ? MEMBER_KINDS[child.type] : undefined;
+    const name = child?.childForFieldName('name')?.text;
+    if (!child || !kind || !name) {
+      continue; // index signatures, call signatures, comments...
+    }
+    // A getter and setter, or overloads, share a name; list the member once.
+    const key = `${kind}:${name}`;
+    if (!members.has(key)) {
+      members.set(key, { name, kind, startLine: child.startPosition.row + 1, endLine: lastLineOf(child) });
+    }
+  }
+  return [...members.values()];
 }
 
 /** 1-based last line of a node. A node ending at column 0 really ends on the line before. */

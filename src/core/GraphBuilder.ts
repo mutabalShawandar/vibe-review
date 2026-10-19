@@ -5,6 +5,7 @@ import type {
   GraphModel,
   GraphNode,
   GraphScope,
+  GraphSymbol,
   LineRange,
   NodeStatus,
   SymbolInfo,
@@ -90,11 +91,12 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
   return { scope, nodes, edges, reviewOrder: orderForReview(changed, byPath, importedBy) };
 }
 
-/** A symbol counts as changed when any changed line range overlaps its lines. */
-function markChangedSymbols(symbols: SymbolInfo[], ranges: LineRange[] | undefined) {
-  return symbols.map((symbol) => ({
+/** A symbol counts as changed when any changed line range overlaps its lines. Members are checked the same way. */
+function markChangedSymbols(symbols: SymbolInfo[], ranges: LineRange[] | undefined): GraphSymbol[] {
+  return symbols.map(({ members, ...symbol }) => ({
     ...symbol,
     changed: ranges?.some((range) => range.start <= symbol.endLine && range.end >= symbol.startLine) ?? false,
+    ...(members ? { members: markChangedSymbols(members, ranges) } : {}),
   }));
 }
 

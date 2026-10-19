@@ -90,6 +90,9 @@ export function activate(context: vscode.ExtensionContext): void {
           output.appendLine(`Symbols (${analysis.symbols.length}):`);
           for (const symbol of analysis.symbols) {
             output.appendLine(`  ${symbol.kind.padEnd(9)} ${symbol.name}  [lines ${symbol.startLine}-${symbol.endLine}]`);
+            for (const member of symbol.members ?? []) {
+              output.appendLine(`      ${member.kind.padEnd(9)} ${member.name}  [lines ${member.startLine}-${member.endLine}]`);
+            }
           }
           output.appendLine(`Imports (${analysis.imports.length}):`);
           for (const imported of analysis.imports) {

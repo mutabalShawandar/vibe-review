@@ -122,6 +122,34 @@ describe('changed symbols', () => {
   });
 });
 
+describe('changed members', () => {
+  const classSymbol: SymbolInfo = {
+    name: 'Service',
+    kind: 'class',
+    startLine: 1,
+    endLine: 20,
+    members: [
+      { name: 'find', kind: 'method', startLine: 3, endLine: 6 },
+      { name: 'save', kind: 'method', startLine: 8, endLine: 12 },
+    ],
+  };
+
+  it('flags only the members a change touches, and the class that contains them', () => {
+    const graph = buildGraph([file('a.ts', [], [classSymbol])], [modified('a.ts', [9, 9])], 'full');
+    const service = graph.nodes[0].symbols[0];
+    expect(service.changed).toBe(true);
+    expect(service.members!.map((m) => [m.name, m.changed])).toEqual([
+      ['find', false],
+      ['save', true],
+    ]);
+  });
+
+  it('leaves symbols without members free of a members field', () => {
+    const graph = buildGraph([file('a.ts', [], [{ name: 'f', kind: 'function', startLine: 1, endLine: 2 }])], [], 'full');
+    expect('members' in graph.nodes[0].symbols[0]).toBe(false);
+  });
+});
+
 describe('review order', () => {
   const edit = (...paths: string[]) => paths.map((path) => modified(path, [1, 1]));
 
