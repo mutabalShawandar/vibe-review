@@ -56,6 +56,7 @@
   },
   "dependencies": {
     "@xyflow/react": "12.12.0",
+    "elkjs": "0.10.0",
     "jsonc-parser": "3.3.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",

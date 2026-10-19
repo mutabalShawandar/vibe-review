@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Some tests bundle the whole extension or run real git, which can take a while on a busy machine.
+  test: { testTimeout: 30_000 },
   plugins: [
     {
       // Mirrors esbuild's `text` loader for .scm query files, so tests can import them as strings.

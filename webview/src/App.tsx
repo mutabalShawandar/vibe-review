@@ -1,8 +1,9 @@
 import { Background, Controls, ReactFlow, ReactFlowProvider } from '@xyflow/react';
-import { useEffect, useMemo, useState } from 'react';
+import type { Edge, Node } from '@xyflow/react';
+import { useEffect, useState } from 'react';
 import type { GraphModel, GraphScope } from '../../src/core/types';
 import type { HostMessage } from '../../src/ui/messages';
-import { toFlowElements } from './layout';
+import { layoutGraph } from './layout';
 import { vscode } from './vscode';
 
 type State =
@@ -85,13 +86,38 @@ function Body({ state }: { state: State }) {
 }
 
 function Graph({ graph }: { graph: GraphModel }) {
-  const { nodes, edges } = useMemo(() => toFlowElements(graph), [graph]);
+  const [elements, setElements] = useState<{ nodes: Node[]; edges: Edge[] } | undefined>();
+
+  // Layout is asynchronous, so the boxes appear a moment after the data arrives.
+  useEffect(() => {
+    let cancelled = false; // a newer graph may arrive before this layout finishes
+    setElements(undefined);
+    layoutGraph(graph).then(
+      (result) => !cancelled && setElements(result),
+      (error) => console.error('Layout failed', error),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [graph]);
+
+  if (!elements) {
+    return <p className="message">Laying out {graph.nodes.length} files...</p>;
+  }
+
   // The editor theme decides light or dark; VS Code marks the page with a body class.
   const dark = document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast');
 
   return (
     <ReactFlowProvider>
-      <ReactFlow nodes={nodes} edges={edges} fitView colorMode={dark ? 'dark' : 'light'} nodesConnectable={false}>
+      <ReactFlow
+        nodes={elements.nodes}
+        edges={elements.edges}
+        fitView
+        minZoom={0.1}
+        colorMode={dark ? 'dark' : 'light'}
+        nodesConnectable={false}
+      >
         <Background />
         <Controls showInteractive={false} />
       </ReactFlow>
