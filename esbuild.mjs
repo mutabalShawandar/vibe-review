@@ -15,10 +15,7 @@ function copyWasmFiles() {
   // Check everything first so a missing file gives one clear message instead of a raw ENOENT.
   const missing = copies.map(([from]) => from).filter((from) => !existsSync(from));
   if (missing.length > 0) {
-    console.error(`Missing files needed for the build:
-  ${missing.join('
-  ')}
-Run "npm install" and try again.`);
+    console.error(`Missing files needed for the build:\n  ${missing.join('\n  ')}\nRun "npm install" and try again.`);
     process.exit(1);
   }
 
