@@ -23,5 +23,7 @@ const args = [
   projectToOpen,
 ];
 console.log(`Opening ${projectToOpen} with the extension loaded...`);
-// `code` is a .cmd file on Windows, which needs a shell to run.
-spawnSync('code', args, { stdio: 'inherit', shell: process.platform === 'win32' });
+// `code` is a .cmd file on Windows, which needs a shell to run. Node warns when an argument
+// list is combined with a shell, so the quoted command is built here as one string.
+const quote = (arg) => `"${arg.replaceAll('"', '\\"')}"`;
+spawnSync(`code ${args.map(quote).join(' ')}`, { stdio: 'inherit', shell: true });
