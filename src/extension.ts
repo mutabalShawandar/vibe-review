@@ -1,15 +1,8 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { GitChangeProvider } from './changes/GitChangeProvider';
+import { createRegistry } from './languages';
 import { ParserLoader } from './parser/ParserLoader';
-
-// Temporary (step 4a): which grammar file parses which extension. Replaced by the
-// strategy registry in step 4b/4c.
-const DEBUG_GRAMMARS: Record<string, string> = {
-  '.ts': 'tree-sitter-typescript.wasm',
-  '.tsx': 'tree-sitter-tsx.wasm',
-  '.py': 'tree-sitter-python.wasm',
-};
 
 export function activate(context: vscode.ExtensionContext): void {
   // The "Vibe Review" tab in the Output panel; we log what the extension finds there.
@@ -18,6 +11,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // The .wasm files are copied to dist/grammars by the build (see esbuild.mjs).
   const parser = new ParserLoader((fileName) => path.join(context.extensionPath, 'dist', 'grammars', fileName));
+
+  // Knows which language strategy handles which file; see src/languages/index.ts.
+  const registry = createRegistry();
 
   context.subscriptions.push(
     vscode.commands.registerCommand('vibeReview.open', () => {
@@ -55,35 +51,45 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
-    // Temporary step 4a command: proves the WASM parser loads and runs inside the extension.
-    vscode.commands.registerCommand('vibeReview.parseActiveFile', async () => {
+    // Temporary step 4c command: runs the real pipeline (registry -> parser -> strategy)
+    // on the open file so the result can be compared with the file by eye.
+    vscode.commands.registerCommand('vibeReview.analyzeActiveFile', async () => {
       const document = vscode.window.activeTextEditor?.document;
       output.show(true);
       if (!document) {
-        output.appendLine('Open a .ts, .tsx or .py file first.');
+        output.appendLine('Open a file first.');
         return;
       }
 
-      const grammar = DEBUG_GRAMMARS[path.extname(document.fileName).toLowerCase()];
-      if (!grammar) {
-        output.appendLine(`No grammar for ${document.fileName}`);
+      const strategy = registry.forFile(document.fileName);
+      if (!strategy) {
+        output.appendLine(`No language strategy for ${path.basename(document.fileName)}`);
         return;
       }
 
       try {
         const started = Date.now();
-        const tree = await parser.parse(grammar, document.getText());
+        const source = document.getText();
+        const tree = await parser.parse(strategy.grammarFor(document.fileName), source);
         try {
-          const root = tree.rootNode;
+          const analysis = strategy.extract({ path: document.fileName, source, tree });
           output.appendLine(
-            `Parsed ${path.basename(document.fileName)} with ${grammar} in ${Date.now() - started} ms: ` +
-              `root=${root.type}, top-level nodes=${root.namedChildCount}, syntax errors=${root.hasError}`,
+            `--- ${path.basename(document.fileName)} (${strategy.id}, ${Date.now() - started} ms, ` +
+              `syntax errors: ${tree.rootNode.hasError}) ---`,
           );
+          output.appendLine(`Symbols (${analysis.symbols.length}):`);
+          for (const symbol of analysis.symbols) {
+            output.appendLine(`  ${symbol.kind.padEnd(9)} ${symbol.name}  [lines ${symbol.startLine}-${symbol.endLine}]`);
+          }
+          output.appendLine(`Imports (${analysis.imports.length}):`);
+          for (const imported of analysis.imports) {
+            output.appendLine(`  line ${String(imported.line).padEnd(4)} ${imported.specifier}`);
+          }
         } finally {
-          tree.delete(); // free WASM memory, even if reading the tree or logging threw
+          tree.delete(); // free WASM memory, even if extraction threw
         }
       } catch (error) {
-        output.appendLine(`Parse failed: ${error instanceof Error ? error.stack : error}`);
+        output.appendLine(`Analysis failed: ${error instanceof Error ? error.stack : error}`);
       }
     }),
   );

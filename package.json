@@ -29,8 +29,8 @@
         "title": "Vibe Review: Log Changes (debug)"
       },
       {
-        "command": "vibeReview.parseActiveFile",
-        "title": "Vibe Review: Parse Active File (debug)"
+        "command": "vibeReview.analyzeActiveFile",
+        "title": "Vibe Review: Analyze Active File (debug)"
       }
     ]
   },
