@@ -3,6 +3,7 @@ import type { LanguageStrategy, ResolveContext } from '../../core/LanguageStrate
 import type { FileAnalysis, ImportRef, ParsedFile, SymbolInfo, SymbolKind } from '../../core/types';
 import importsQuery from './queries/imports.scm';
 import symbolsQuery from './queries/symbols.scm';
+import { resolveTypeScriptImport } from './resolveImport';
 
 // The capture names in symbols.scm that mark a whole declaration, one per symbol kind.
 const SYMBOL_KINDS: readonly SymbolKind[] = ['class', 'interface', 'function', 'type', 'enum', 'variable'];
@@ -30,9 +31,8 @@ export class TypeScriptStrategy implements LanguageStrategy {
     };
   }
 
-  // Implemented in step 5 (relative paths, tsconfig aliases, index files).
-  resolveImport(_specifier: string, _fromFile: string, _ctx: ResolveContext): string | undefined {
-    return undefined;
+  resolveImport(specifier: string, fromFile: string, ctx: ResolveContext): string | undefined {
+    return resolveTypeScriptImport(specifier, fromFile, ctx, this.extensions);
   }
 
   private queriesFor(language: Language): { symbols: Query; imports: Query } {

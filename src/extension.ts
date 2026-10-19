@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { GitChangeProvider } from './changes/GitChangeProvider';
 import { createRegistry } from './languages';
 import { ParserLoader } from './parser/ParserLoader';
+import { NodeResolveContext } from './workspace/NodeResolveContext';
 
 export function activate(context: vscode.ExtensionContext): void {
   // The "Vibe Review" tab in the Output panel; we log what the extension finds there.
@@ -67,12 +68,23 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
+      // Imports are resolved relative to the workspace folder, with forward-slash paths.
+      const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+      if (!folder) {
+        output.appendLine(
+          'The file is not inside an open workspace folder. Open the project folder that contains it (File > Open Folder) and try again.',
+        );
+        return;
+      }
+      const relativePath = path.relative(folder.uri.fsPath, document.fileName).split(path.sep).join('/');
+      const resolveContext = new NodeResolveContext(folder.uri.fsPath);
+
       try {
         const started = Date.now();
         const source = document.getText();
         const tree = await parser.parse(strategy.grammarFor(document.fileName), source);
         try {
-          const analysis = strategy.extract({ path: document.fileName, source, tree });
+          const analysis = strategy.extract({ path: relativePath, source, tree });
           output.appendLine(
             `--- ${path.basename(document.fileName)} (${strategy.id}, ${Date.now() - started} ms, ` +
               `syntax errors: ${tree.rootNode.hasError}) ---`,
@@ -83,7 +95,10 @@ export function activate(context: vscode.ExtensionContext): void {
           }
           output.appendLine(`Imports (${analysis.imports.length}):`);
           for (const imported of analysis.imports) {
-            output.appendLine(`  line ${String(imported.line).padEnd(4)} ${imported.specifier}`);
+            const target = strategy.resolveImport(imported.specifier, relativePath, resolveContext);
+            output.appendLine(
+              `  line ${String(imported.line).padEnd(4)} ${imported.specifier}  ->  ${target ?? '(external or not found)'}`,
+            );
           }
         } finally {
           tree.delete(); // free WASM memory, even if extraction threw

@@ -1,5 +1,6 @@
 import { context, build } from 'esbuild';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { bundleOptions } from './esbuild.config.mjs';
 
 // Every .wasm file the extension needs at runtime, copied next to the bundle.
 // Adding a language: add its grammar file name here (they all come from tree-sitter-wasms).
@@ -25,28 +26,12 @@ function copyWasmFiles() {
   }
 }
 
-const options = {
-  entryPoints: ['src/extension.ts'],
-  outfile: 'dist/extension.js',
-  bundle: true,
-  platform: 'node',
-  format: 'cjs',
-  target: 'node20',
-  external: ['vscode'],
-  // Tree-sitter query files are bundled into the extension as plain strings.
-  loader: { '.scm': 'text' },
-  // web-tree-sitter ships an ESM and a CommonJS build. esbuild would pick the ESM one,
-  // which uses `import.meta.url` and crashes inside our CommonJS bundle. Force the CJS one.
-  alias: { 'web-tree-sitter': './node_modules/web-tree-sitter/tree-sitter.cjs' },
-  sourcemap: true,
-};
-
 copyWasmFiles();
 
 if (process.argv.includes('--watch')) {
-  const ctx = await context(options);
+  const ctx = await context(bundleOptions);
   await ctx.watch();
   console.log('watching...');
 } else {
-  await build(options);
+  await build(bundleOptions);
 }
