@@ -2,7 +2,7 @@
 <!-- What does this PR do and why? Keep it short. -->
 
 ## Linked issue
-<!-- Closes #123 -->
+<!-- Closes #123. The issue should be assigned to you, or this is a small fix (typo, broken link) that needs no issue. -->
 
 ## Type of change
 - [ ] feat: new feature

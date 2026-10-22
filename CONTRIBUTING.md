@@ -85,6 +85,16 @@ This is the contribution we want most. A language is one folder plus one line.
 
 The graph, sidebar and cards live in `webview/src/`. Pure logic (grouping, routes, what's fresh, card rows) is in plain `.ts` files and is unit-tested (`test/route.test.ts`, `test/review.test.ts`, `test/card.test.ts`...). Keep it that way: logic in a testable function, rendering in the component. Colors come from VS Code theme variables (`--vscode-*`) so every theme works; check your change in a light and a dark theme.
 
+## Picking an issue
+
+Issues labeled [good first issue](https://github.com/mutabalShawandar/vibe-review/labels/good%20first%20issue) are small and well described; [help wanted](https://github.com/mutabalShawandar/vibe-review/labels/help%20wanted) ones are bigger.
+
+1. **Ask first.** Comment "I'd like to work on this" on the issue and **wait until the maintainer assigns it to you** before you start. This keeps two people from doing the same work.
+2. **One person per issue.** Good first issues have a single assignee, so more newcomers get a chance.
+3. **Assignments last 14 days.** If there is no pull request, draft or update by then, the issue goes back to the pool and anyone may ask for it. If you need more time, say so in the issue and keep it.
+4. **Small fixes need no assignment.** For a typo, a broken link or a one-line fix, open the pull request directly.
+5. **Anything bigger than a small fix needs an issue first**, so we can agree on the approach before you invest time. Open one if none exists.
+
 ## Making a change
 
 1. **Fork and clone** as described in *Setup*. Never work on `main` of your fork; make a branch for each change.
@@ -96,7 +106,7 @@ The graph, sidebar and cards live in `webview/src/`. Pure logic (grouping, route
 
 To pick up changes made upstream while you work: `git fetch upstream` and then `git rebase upstream/main` (or merge it) on your branch.
 
-New to open source? Start with an issue labeled [good first issue](https://github.com/mutabalShawandar/vibe-review/labels/good%20first%20issue), and comment on it so nobody else starts the same work. Questions are welcome in the issue.
+New to open source? Pick a *good first issue* as described above. Questions are welcome in the issue.
 
 ## Commits
 
