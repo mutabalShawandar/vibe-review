@@ -39,8 +39,8 @@ function linksFor(file: AnalyzedFile, imported: ResolvedImport, target: Analyzed
     if (users.length === 0) {
       links.push({ ...(to ? { to } : {}) }); // imported but not used inside any symbol
     }
-    for (const from of users) {
-      links.push({ from, ...(to ? { to } : {}) });
+    for (const { ref: from, lines } of users) {
+      links.push({ from, ...(to ? { to } : {}), ...(lines ? { lines } : {}) });
     }
   }
   return links;
@@ -58,17 +58,17 @@ function targetSymbol(target: AnalyzedFile, binding: ImportBinding): SymbolRef |
   return symbol ? { symbol: symbol.name } : undefined;
 }
 
-/** Symbols and class members of `file` whose body mentions the imported name `local`. */
-function symbolsUsing(file: AnalyzedFile, local: string): SymbolRef[] {
-  const users: SymbolRef[] = [];
+/** Symbols and class members of `file` whose body mentions the imported name `local`, with the lines it is mentioned on. */
+function symbolsUsing(file: AnalyzedFile, local: string): { ref: SymbolRef; lines?: number[] }[] {
+  const users: { ref: SymbolRef; lines?: number[] }[] = [];
   for (const symbol of file.symbols) {
     const usingMembers = (symbol.members ?? []).filter((member) => member.references?.includes(local));
     for (const member of usingMembers) {
-      users.push({ symbol: symbol.name, member: member.name });
+      users.push({ ref: { symbol: symbol.name, member: member.name }, lines: member.referenceLines?.[local] });
     }
     // The class itself (e.g. `extends Base`) only counts when no member explains the use.
     if (symbol.references?.includes(local) && usingMembers.length === 0) {
-      users.push({ symbol: symbol.name });
+      users.push({ ref: { symbol: symbol.name }, lines: symbol.referenceLines?.[local] });
     }
   }
   return users;

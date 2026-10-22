@@ -26,10 +26,12 @@ function writeVscodeStub(registered: string[]): string {
   writeFileSync(
     stubPath,
     `exports.window = { createOutputChannel: () => ({ show() {}, appendLine() {}, dispose() {} }),
-        createWebviewPanel: () => ({ webview: {} }), showWarningMessage() {}, activeTextEditor: undefined };
+        createWebviewPanel: () => ({ webview: {} }), showWarningMessage() {}, activeTextEditor: undefined,
+        createTextEditorDecorationType: () => ({ dispose() {} }) };
      exports.commands = { registerCommand: (id) => { globalThis.__registered.push(id); return { dispose() {} }; } };
      exports.workspace = { workspaceFolders: undefined, getWorkspaceFolder: () => undefined };
-     exports.ViewColumn = { Active: -1 };`,
+     exports.ViewColumn = { Active: -1 };
+     exports.OverviewRulerLane = { Left: 1, Center: 2, Right: 4 };`,
   );
   (globalThis as { __registered?: string[] }).__registered = registered;
   return stubPath;

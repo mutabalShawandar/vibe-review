@@ -72,14 +72,14 @@ export class TypeScriptStrategy implements LanguageStrategy {
       const node = declaration.node;
       const kind = refineKind(declaration.name as SymbolKind, name, node);
       const members = kind === 'class' || kind === 'interface' ? membersOf(node, importedNames) : [];
-      const references = referencesIn(node, importedNames);
+      const used = referencesIn(node, importedNames);
       const symbol: SymbolInfo = {
         name,
         kind,
         startLine: node.startPosition.row + 1,
         endLine: lastLineOf(node),
         ...(members.length > 0 ? { members } : {}),
-        ...(references ? { references } : {}),
+        ...used,
         // `export default function Page() {}` or `export default class Store {}`
         ...(isDefaultExport(node) ? { isDefault: true } : {}),
       };
@@ -151,17 +151,29 @@ const NAME_NODES = ['identifier', 'type_identifier', 'shorthand_property_identif
  * The imported names (by local name) that appear inside a node, sorted. Undefined if none.
  * JSX tag names such as `<Button />` are plain identifiers, so components are found too.
  */
-function referencesIn(node: Node, importedNames: Set<string>): string[] | undefined {
+function referencesIn(
+  node: Node,
+  importedNames: Set<string>,
+): { references: string[]; referenceLines: Record<string, number[]> } | undefined {
   if (importedNames.size === 0) {
     return undefined;
   }
-  const used = new Set<string>();
+  // Imported name -> the lines it is written on.
+  const lines = new Map<string, Set<number>>();
   for (const name of node.descendantsOfType(NAME_NODES)) {
     if (name && importedNames.has(name.text)) {
-      used.add(name.text);
+      const set = lines.get(name.text) ?? new Set<number>();
+      set.add(name.startPosition.row + 1);
+      lines.set(name.text, set);
     }
   }
-  return used.size > 0 ? [...used].sort() : undefined;
+  if (lines.size === 0) {
+    return undefined;
+  }
+  return {
+    references: [...lines.keys()].sort(),
+    referenceLines: Object.fromEntries([...lines].map(([name, set]) => [name, [...set].sort((a, b) => a - b)])),
+  };
 }
 
 /** True for `export default ...` statements, whatever follows `default`. */
@@ -188,13 +200,13 @@ function membersOf(node: Node, importedNames: Set<string>): SymbolInfo[] {
     // A getter and setter, or overloads, share a name; list the member once.
     const key = `${kind}:${name}`;
     if (!members.has(key)) {
-      const references = referencesIn(child, importedNames);
+      const used = referencesIn(child, importedNames);
       members.set(key, {
         name,
         kind,
         startLine: child.startPosition.row + 1,
         endLine: lastLineOf(child),
-        ...(references ? { references } : {}),
+        ...used,
       });
     }
   }

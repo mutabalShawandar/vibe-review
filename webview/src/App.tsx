@@ -5,6 +5,8 @@ import type { GraphModel, GraphScope } from '../../src/core/types';
 import type { HostMessage } from '../../src/ui/messages';
 import { CardActions, FileCard } from './FileCard';
 import type { RowMark } from './layout';
+import { computeRoute, editorMarks, rangeOf } from './route';
+import { splitPath } from './card';
 import { layoutGraph, type FileCardNode } from './layout';
 import { vscode } from './vscode';
 
@@ -113,48 +115,37 @@ function Graph({ graph }: { graph: GraphModel }) {
   const [hover, setHover] = useState<{ id: string; key?: string } | undefined>();
   const focus = useCallback((id: string, key?: string) => setHover({ id, key }), []);
   const blur = useCallback(() => setHover(undefined), []);
-  const actions = useMemo(() => ({ toggle, focus, blur }), [toggle, focus, blur]);
+
+  // Click: show the symbol in the editor, with the symbols it uses and the ones that use it marked there.
+  const open = useCallback(
+    (id: string, key?: string) => {
+      const node = graph.nodes.find((candidate) => candidate.id === id);
+      if (!node || !elements) {
+        return;
+      }
+      const own = key ? rangeOf(node, key) : undefined;
+      const { highlights, sites } = editorMarks(graph.nodes, elements.edges, { id, key });
+
+      vscode.postMessage({
+        type: 'open',
+        file: id,
+        line: own?.startLine ?? 1,
+        endLine: own?.endLine,
+        origin: key ?? splitPath(id).name,
+        highlights,
+        sites,
+      });
+    },
+    [graph, elements],
+  );
+  const actions = useMemo(() => ({ toggle, focus, blur, open }), [toggle, focus, blur, open]);
 
   // Arrows touching the hovered card (or symbol) are "hot"; everything else is dimmed.
   const view = useMemo(() => {
     if (!elements || !hover) {
       return elements;
     }
-    // A symbol is identified by its card and row key ("file" for the card header). An arrow runs
-    // from the symbol that uses something to the symbol it uses, so the "full route" is every arrow
-    // reachable from the hovered symbol, following arrows forward (what it uses, and what that
-    // uses...) and backward (what uses it, and what uses that...).
-    const from = (edge: Edge) => `${edge.source}|${(edge.sourceHandle ?? '').slice(2)}`;
-    const to = (edge: Edge) => `${edge.target}|${(edge.targetHandle ?? '').slice(2)}`;
-
-    // Start: the hovered symbol, or for a whole card every symbol of it that has an arrow.
-    const start = new Set<string>();
-    for (const edge of elements.edges) {
-      for (const end of [from(edge), to(edge)]) {
-        if (hover.key ? end === `${hover.id}|${hover.key}` : end.startsWith(`${hover.id}|`)) {
-          start.add(end);
-        }
-      }
-    }
-    const downstream = new Set(start);
-    const upstream = new Set(start);
-    const hotEdges = new Set<Edge>();
-    for (let changed = true; changed; ) {
-      changed = false;
-      for (const edge of elements.edges) {
-        if (downstream.has(from(edge)) && !downstream.has(to(edge))) {
-          downstream.add(to(edge));
-          changed = true;
-        }
-        if (upstream.has(to(edge)) && !upstream.has(from(edge))) {
-          upstream.add(from(edge));
-          changed = true;
-        }
-        if (downstream.has(from(edge)) || upstream.has(to(edge))) {
-          hotEdges.add(edge);
-        }
-      }
-    }
+    const { start, downstream, upstream, edges: hotEdges } = computeRoute(elements.edges, hover);
 
     const related = new Set([hover.id]);
     const edges = elements.edges.map((edge) => {

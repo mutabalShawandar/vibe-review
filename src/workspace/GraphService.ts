@@ -1,7 +1,7 @@
 import { GitChangeProvider } from '../changes/GitChangeProvider';
 import { buildGraph } from '../core/GraphBuilder';
 import type { StrategyRegistry } from '../core/StrategyRegistry';
-import type { GraphModel, GraphScope } from '../core/types';
+import type { ChangeSet, GraphModel, GraphScope } from '../core/types';
 import type { ParserLoader } from '../parser/ParserLoader';
 import { WorkspaceAnalyzer, type AnalysisResult } from './WorkspaceAnalyzer';
 
@@ -9,6 +9,8 @@ export interface WorkspaceGraph {
   graph: GraphModel;
   /** How many files git reports as changed (including ones we do not analyze, like .md). */
   changeCount: number;
+  /** The git changes the graph was built from; the editor highlights use their line ranges. */
+  changes: ChangeSet;
   analysis: AnalysisResult;
 }
 
@@ -37,6 +39,6 @@ export class GraphService {
 
     const analysis = await analyzer.analyze(onProgress);
     const changes = await new GitChangeProvider(root).getChanges();
-    return { graph: buildGraph(analysis.files, changes, scope), changeCount: changes.length, analysis };
+    return { graph: buildGraph(analysis.files, changes, scope), changeCount: changes.length, changes, analysis };
   }
 }

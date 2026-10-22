@@ -181,6 +181,17 @@ describe('TypeScriptStrategy.extract', () => {
     });
   });
 
+  describe('where a symbol uses an imported name', () => {
+    it('records the lines each imported name is written on, inside the symbol', async () => {
+      const { symbols } = await analyze('usage.tsx');
+      const lines = (name: string) => symbols.find((s) => s.name === name)?.referenceLines;
+      expect(lines('loadAll')).toEqual({ getUsers: [8] });
+      expect(lines('remove')).toEqual({ db: [13], deleteUser: [12] });
+      const service = symbols.find((s) => s.name === 'Service');
+      expect(service?.members?.find((m) => m.name === 'list')?.referenceLines).toEqual({ getUsers: [26] });
+    });
+  });
+
   describe('which imported names a symbol uses', () => {
     const usageOf = async (fixture: string) =>
       Object.fromEntries((await analyze(fixture)).symbols.map((s) => [s.name, s.references]));

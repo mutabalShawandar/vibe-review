@@ -271,6 +271,10 @@ body {
 .react-flow__node {
   transition: opacity 0.12s;
 }
+.file-card__header,
+.file-card__row {
+  cursor: pointer; /* a click opens the file in the editor */
+}
 .file-card__row:hover {
   background: var(--vscode-list-hoverBackground);
 }

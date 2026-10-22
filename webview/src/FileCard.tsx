@@ -10,7 +10,9 @@ export const CardActions = createContext<{
   /** The pointer is over a card (or one symbol row of it): highlight what it is connected to. */
   focus(id: string, key?: string): void;
   blur(): void;
-}>({ toggle() {}, focus() {}, blur() {} });
+  /** Open a symbol (or the file, without `key`) in the editor and mark its route in the code. */
+  open(id: string, key?: string): void;
+}>({ toggle() {}, focus() {}, blur() {}, open() {} });
 
 // A short mark and a name for each kind of symbol, like the icons in a class diagram.
 const KIND: Record<SymbolKind, { mark: string; name: string }> = {
@@ -40,7 +42,7 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
  */
 export function FileCard({ id, data }: NodeProps<FileCardNode>) {
   const { node, card, expanded, marks } = data;
-  const { toggle, focus, blur } = useContext(CardActions);
+  const { toggle, focus, blur, open } = useContext(CardActions);
   const updateNodeInternals = useUpdateNodeInternals();
 
   // Rows appear and disappear when the card is expanded; React Flow must measure the new connection points.
@@ -56,6 +58,7 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
         style={{ height: HEADER_HEIGHT }}
         title={node.id}
         onMouseEnter={() => focus(id)}
+        onClick={() => open(id)}
       >
         <Handle id="s:file" type="source" position={Position.Left} />
         <Handle id="t:file" type="target" position={Position.Right} />
@@ -76,6 +79,7 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
             className={`file-card__row depth-${row.depth}${row.changed ? ' is-changed' : ''}${marks?.[row.key] ? ` mark-${marks[row.key]}` : ''}`}
             style={{ height: ROW_HEIGHT }}
             onMouseEnter={() => focus(id, row.key)}
+            onClick={() => open(id, row.key)}
             title={`${KIND[row.kind].name} ${row.label}${row.changed ? ' (changed)' : ''}`}
           >
             {first && <Handle id={`s:${row.key}`} type="source" position={Position.Left} />}

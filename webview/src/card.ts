@@ -16,6 +16,8 @@ export interface CardRow {
   label: string;
   kind: SymbolKind;
   changed: boolean;
+  /** Where the symbol starts in its file (1-based), so a click can open it. */
+  line: number;
   /** 0 for a symbol, 1 for a member of a class or interface. */
   depth: 0 | 1;
 }
@@ -46,6 +48,7 @@ export function buildCard(node: GraphNode, expanded: boolean): Card {
         label: symbol.name,
         kind: symbol.kind,
         changed: symbol.changed,
+        line: symbol.startLine,
         depth,
       });
     }

@@ -67,6 +67,8 @@ export function toFlowElements(
       const targetHandle = `t:${visiblePort(toCard, use.to)}`;
       // Several links can collapse onto the same two connection points; draw that arrow once.
       const id = `${edge.from}|${sourceHandle}->${edge.to}|${targetHandle}`;
+      // The lines (in the importing file) that mention the imported name; merged when links collapse.
+      const lines = [...new Set([...((edges.get(id)?.data?.lines as number[] | undefined) ?? []), ...(use.lines ?? [])])].sort((a, b) => a - b);
       edges.set(id, {
         id,
         source: edge.from, // the file that imports...
@@ -74,6 +76,7 @@ export function toFlowElements(
         sourceHandle,
         targetHandle,
         type: 'smoothstep',
+        data: { lines },
         // All arrows leaving one file share a color, so a file's dependencies read as one group.
         style: { stroke: edgeColor(edge.from) },
         markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor(edge.from) },

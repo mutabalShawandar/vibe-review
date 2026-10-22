@@ -39,6 +39,17 @@ describe('linkImports', () => {
     expect(linksBetween(page, users)).toEqual([{ from: { symbol: 'UsersPage' }, to: { symbol: 'getUsers' } }]);
   });
 
+  it('carries the lines where the name is used onto the link', () => {
+    const page = file(
+      'page.tsx',
+      [fn('UsersPage', ['getUsers'], { referenceLines: { getUsers: [5, 9] } })],
+      [{ file: 'users.ts', bindings: [named('getUsers')] }],
+    );
+    expect(linksBetween(page, users)).toEqual([
+      { from: { symbol: 'UsersPage' }, to: { symbol: 'getUsers' }, lines: [5, 9] },
+    ]);
+  });
+
   it('follows an alias: the local name is searched, the imported name is linked', () => {
     const page = file('page.tsx', [fn('Page', ['fetchUsers'])], [{ file: 'users.ts', bindings: [named('getUsers', 'fetchUsers')] }]);
     expect(linksBetween(page, users)).toEqual([{ from: { symbol: 'Page' }, to: { symbol: 'getUsers' } }]);

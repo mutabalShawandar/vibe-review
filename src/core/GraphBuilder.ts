@@ -156,8 +156,8 @@ function toGraphSymbols(
   relevant: 'all' | Set<string>,
   parent?: string,
 ): GraphSymbol[] {
-  // `references` is analysis input; the diagram does not need it, so it is left out here.
-  return symbols.map(({ members, references: _references, ...symbol }) => {
+  // `references` and their lines are analysis input; the diagram does not need them, so they are left out here.
+  return symbols.map(({ members, references: _references, referenceLines: _referenceLines, ...symbol }) => {
     const key = parent ? `${parent}.${symbol.name}` : symbol.name;
     return {
       ...symbol,

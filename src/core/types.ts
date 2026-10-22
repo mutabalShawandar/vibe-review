@@ -42,6 +42,8 @@ export interface SymbolInfo {
    * variable that reuses an imported name is counted as a use.
    */
   references?: string[];
+  /** Where those names appear: local name -> the 1-based lines inside the symbol that mention it. */
+  referenceLines?: Record<string, number[]>;
   /** The file's default export (`export default ...`), which is what `import X from './file'` receives. */
   isDefault?: boolean;
 }
@@ -190,6 +192,8 @@ export interface SymbolRef {
 export interface SymbolLink {
   from?: SymbolRef;
   to?: SymbolRef;
+  /** The lines of the importing file where `from` mentions the imported name: the exact places that depend on `to`. */
+  lines?: number[];
 }
 
 /** An arrow in the diagram: the file `from` imports the file `to`. */
