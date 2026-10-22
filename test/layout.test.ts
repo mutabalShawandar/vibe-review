@@ -10,8 +10,8 @@ const graph: GraphModel = {
     { id: 'c.ts', language: 'typescript', status: 'dependency', symbols: [] },
   ],
   edges: [
-    { from: 'b.ts', to: 'a.ts' },
-    { from: 'a.ts', to: 'c.ts' },
+    { from: 'b.ts', to: 'a.ts', uses: [{}] },
+    { from: 'a.ts', to: 'c.ts', uses: [{}] },
   ],
   reviewOrder: ['a.ts'],
 };
@@ -62,9 +62,9 @@ describe('layoutGraph', () => {
       })),
       // a hub imported by everything, plus a chain, plus unconnected files
       edges: [
-        ...Array.from({ length: 15 }, (_, i) => ({ from: `f${i + 1}.ts`, to: 'f0.ts' })),
-        { from: 'f16.ts', to: 'f17.ts' },
-        { from: 'f17.ts', to: 'f18.ts' },
+        ...Array.from({ length: 15 }, (_, i) => ({ from: `f${i + 1}.ts`, to: 'f0.ts', uses: [{}] })),
+        { from: 'f16.ts', to: 'f17.ts', uses: [{}] },
+        { from: 'f17.ts', to: 'f18.ts', uses: [{}] },
       ],
       reviewOrder: [],
     };
@@ -85,8 +85,8 @@ describe('layoutGraph', () => {
       scope: 'full',
       nodes: ['a', 'b'].map((id) => ({ id, language: 'typescript', status: 'unchanged' as const, symbols: [] })),
       edges: [
-        { from: 'a', to: 'b' },
-        { from: 'b', to: 'a' },
+        { from: 'a', to: 'b', uses: [{}] },
+        { from: 'b', to: 'a', uses: [{}] },
       ],
       reviewOrder: [],
     };

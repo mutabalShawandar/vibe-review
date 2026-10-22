@@ -1,0 +1,85 @@
+import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
+import { createContext, useContext, useEffect } from 'react';
+import type { NodeStatus, SymbolKind } from '../../src/core/types';
+import { CARD_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, ROW_HEIGHT, splitPath } from './card';
+import type { FileCardNode } from './layout';
+
+/** Lets a card ask the app to expand or collapse it, without passing callbacks through React Flow's node data. */
+export const CardActions = createContext<{ toggle(id: string): void }>({ toggle() {} });
+
+// A short mark and a name for each kind of symbol, like the icons in a class diagram.
+const KIND: Record<SymbolKind, { mark: string; name: string }> = {
+  class: { mark: 'C', name: 'class' },
+  interface: { mark: 'I', name: 'interface' },
+  function: { mark: 'ƒ', name: 'function' },
+  component: { mark: 'U', name: 'component' },
+  hook: { mark: 'H', name: 'hook' },
+  type: { mark: 'T', name: 'type' },
+  enum: { mark: 'E', name: 'enum' },
+  variable: { mark: 'V', name: 'variable' },
+  method: { mark: 'm', name: 'method' },
+  property: { mark: 'p', name: 'property' },
+};
+
+const STATUS_LABEL: Record<NodeStatus, string> = {
+  changed: 'changed',
+  dependent: 'uses a change',
+  dependency: 'used by a change',
+  unchanged: '',
+};
+
+/**
+ * One file as a class-diagram card: the file name, then one row per symbol (members of a class
+ * indented under it). Every row has two connection points: arrows leave on the left, where the
+ * symbol uses something, and arrive on the right, where something else uses the symbol.
+ */
+export function FileCard({ id, data }: NodeProps<FileCardNode>) {
+  const { node, card, expanded } = data;
+  const { toggle } = useContext(CardActions);
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  // Rows appear and disappear when the card is expanded; React Flow must measure the new connection points.
+  useEffect(() => updateNodeInternals(id), [id, card.rows.length, updateNodeInternals]);
+
+  const { name, folder } = splitPath(node.id);
+  const seenKeys = new Set<string>(); // a type and a function can share a name; only the first row gets arrows
+
+  return (
+    <div className={`file-card status-${node.status}`} style={{ width: CARD_WIDTH }}>
+      <header className="file-card__header" style={{ height: HEADER_HEIGHT }} title={node.id}>
+        <Handle id="s:file" type="source" position={Position.Left} />
+        <Handle id="t:file" type="target" position={Position.Right} />
+        <div className="file-card__title">
+          <span className="file-card__name">{name}</span>
+          {STATUS_LABEL[node.status] && <span className={`chip chip-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
+          {node.entryPoint && <span className="chip chip-entry">{node.entryPoint}</span>}
+        </div>
+        {folder && <div className="file-card__folder">{folder}</div>}
+      </header>
+
+      {card.rows.map((row, index) => {
+        const first = !seenKeys.has(row.key);
+        seenKeys.add(row.key);
+        return (
+          <div
+            key={`${index}:${row.key}`}
+            className={`file-card__row depth-${row.depth}${row.changed ? ' is-changed' : ''}`}
+            style={{ height: ROW_HEIGHT }}
+            title={`${KIND[row.kind].name} ${row.label}${row.changed ? ' (changed)' : ''}`}
+          >
+            {first && <Handle id={`s:${row.key}`} type="source" position={Position.Left} />}
+            {first && <Handle id={`t:${row.key}`} type="target" position={Position.Right} />}
+            <span className={`kind-badge kind-${row.kind}`}>{KIND[row.kind].mark}</span>
+            <span className="file-card__label">{row.label}</span>
+          </div>
+        );
+      })}
+
+      {card.hasFooter && (
+        <button className="file-card__footer nodrag" style={{ height: FOOTER_HEIGHT }} onClick={() => toggle(id)}>
+          {expanded ? 'Show less' : `+${card.hiddenCount} more`}
+        </button>
+      )}
+    </div>
+  );
+}

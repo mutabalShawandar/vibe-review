@@ -1,15 +1,20 @@
 import { Background, Controls, ReactFlow, ReactFlowProvider } from '@xyflow/react';
-import type { Edge, Node } from '@xyflow/react';
-import { useEffect, useState } from 'react';
+import type { Edge } from '@xyflow/react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GraphModel, GraphScope } from '../../src/core/types';
 import type { HostMessage } from '../../src/ui/messages';
-import { layoutGraph } from './layout';
+import { CardActions, FileCard } from './FileCard';
+import { layoutGraph, type FileCardNode } from './layout';
 import { vscode } from './vscode';
 
 type State =
   | { kind: 'loading'; message: string }
   | { kind: 'error'; message: string }
-  | { kind: 'graph'; graph: GraphModel };
+  // `version` changes with every graph the extension sends, so view state tied to one graph is reset.
+  | { kind: 'graph'; graph: GraphModel; version: number };
+
+// The kinds of node React Flow may draw. Defined once, outside the component, or React Flow would re-create every node on each render.
+const nodeTypes = { fileCard: FileCard };
 
 export function App() {
   const [state, setState] = useState<State>({ kind: 'loading', message: 'Starting...' });
@@ -20,7 +25,11 @@ export function App() {
       const message = event.data;
       if (message.type === 'graph') {
         setScope(message.graph.scope);
-        setState({ kind: 'graph', graph: message.graph });
+        setState((previous) => ({
+          kind: 'graph',
+          graph: message.graph,
+          version: previous.kind === 'graph' ? previous.version + 1 : 1,
+        }));
       } else if (message.type === 'loading') {
         setState({ kind: 'loading', message: message.message });
       } else if (message.type === 'error') {
@@ -82,24 +91,37 @@ function Body({ state }: { state: State }) {
       </p>
     );
   }
-  return <Graph graph={state.graph} />;
+  return <Graph key={state.version} graph={state.graph} />;
 }
 
 function Graph({ graph }: { graph: GraphModel }) {
-  const [elements, setElements] = useState<{ nodes: Node[]; edges: Edge[] } | undefined>();
+  const [elements, setElements] = useState<{ nodes: FileCardNode[]; edges: Edge[] } | undefined>();
+  // Cards the user opened to see every symbol. Each change needs a new layout: cards change height.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
-  // Layout is asynchronous, so the boxes appear a moment after the data arrives.
+  const toggle = useCallback((id: string) => {
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      if (!next.delete(id)) {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+  const actions = useMemo(() => ({ toggle }), [toggle]);
+
+  // Layout is asynchronous, so the cards appear a moment after the data arrives. The old layout
+  // stays on screen while a new one is computed, so expanding a card does not blank the graph.
   useEffect(() => {
-    let cancelled = false; // a newer graph may arrive before this layout finishes
-    setElements(undefined);
-    layoutGraph(graph).then(
+    let cancelled = false; // a newer request may arrive before this layout finishes
+    layoutGraph(graph, expanded).then(
       (result) => !cancelled && setElements(result),
       (error) => console.error('Layout failed', error),
     );
     return () => {
       cancelled = true;
     };
-  }, [graph]);
+  }, [graph, expanded]);
 
   if (!elements) {
     return <p className="message">Laying out {graph.nodes.length} files...</p>;
@@ -109,18 +131,21 @@ function Graph({ graph }: { graph: GraphModel }) {
   const dark = document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast');
 
   return (
-    <ReactFlowProvider>
-      <ReactFlow
-        nodes={elements.nodes}
-        edges={elements.edges}
-        fitView
-        minZoom={0.1}
-        colorMode={dark ? 'dark' : 'light'}
-        nodesConnectable={false}
-      >
-        <Background />
-        <Controls showInteractive={false} />
-      </ReactFlow>
-    </ReactFlowProvider>
+    <CardActions.Provider value={actions}>
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={elements.nodes}
+          edges={elements.edges}
+          nodeTypes={nodeTypes}
+          fitView
+          minZoom={0.1}
+          colorMode={dark ? 'dark' : 'light'}
+          nodesConnectable={false}
+        >
+          <Background />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </ReactFlowProvider>
+    </CardActions.Provider>
   );
 }

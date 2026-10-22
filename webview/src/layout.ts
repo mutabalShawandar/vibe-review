@@ -1,39 +1,71 @@
-import { MarkerType, Position, type Edge, type Node } from '@xyflow/react';
+import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js';
-import type { GraphModel } from '../../src/core/types';
+import type { GraphModel, GraphNode } from '../../src/core/types';
+import { buildCard, CARD_WIDTH, cardHeight, visiblePort, type Card } from './card';
 
-// Size of one box. Step 7c replaces the fixed height with one based on how many symbols a file has.
-export const NODE_WIDTH = 240;
-export const NODE_HEIGHT = 44;
+/** What a file card needs to draw itself. */
+export interface CardData extends Record<string, unknown> {
+  node: GraphNode;
+  card: Card;
+  expanded: boolean;
+}
+export type FileCardNode = Node<CardData, 'fileCard'>;
+
+// Kept for tests and callers that need the size of a collapsed card of a given file.
+export { CARD_WIDTH };
 
 /**
  * Turn the extension's GraphModel into what React Flow draws, without positions yet.
- * Every position starts at 0,0; `layoutGraph` fills them in.
+ *   - one card per file (taller when it lists more symbols)
+ *   - one arrow per symbol-level link, from the connection point of the symbol that uses
+ *     something to the connection point of the symbol it uses
+ * `expanded` holds the ids of cards the user opened to show every symbol.
  */
-export function toFlowElements(graph: GraphModel): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = graph.nodes.map((node) => ({
-    id: node.id,
-    position: { x: 0, y: 0 },
-    data: { label: node.id },
-    // The status becomes a CSS class, so styles.css can color nodes by it.
-    className: `status-${node.status}`,
-    // Arrows leave a file on its left (towards what it imports) and arrive on its right
-    // (from the files that import it), matching the left-to-right layout below.
-    sourcePosition: Position.Left,
-    targetPosition: Position.Right,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
-  }));
+export function toFlowElements(
+  graph: GraphModel,
+  expanded: ReadonlySet<string> = new Set(),
+): { nodes: FileCardNode[]; edges: Edge[] } {
+  const cards = new Map<string, Card>();
+  const nodes: FileCardNode[] = graph.nodes.map((node) => {
+    const card = buildCard(node, expanded.has(node.id));
+    cards.set(node.id, card);
+    return {
+      id: node.id,
+      type: 'fileCard',
+      position: { x: 0, y: 0 },
+      data: { node, card, expanded: expanded.has(node.id) },
+      className: `status-${node.status}`,
+      width: CARD_WIDTH,
+      height: cardHeight(card),
+    };
+  });
 
-  const edges: Edge[] = graph.edges.map((edge) => ({
-    id: `${edge.from}->${edge.to}`,
-    source: edge.from, // the file that imports...
-    target: edge.to, // ...this one
-    type: 'smoothstep',
-    markerEnd: { type: MarkerType.ArrowClosed },
-  }));
+  const edges = new Map<string, Edge>();
+  for (const edge of graph.edges) {
+    const fromCard = cards.get(edge.from);
+    const toCard = cards.get(edge.to);
+    if (!fromCard || !toCard) {
+      continue;
+    }
+    for (const use of edge.uses) {
+      // `s:` handles are where an arrow leaves a card, `t:` handles where it arrives.
+      const sourceHandle = `s:${visiblePort(fromCard, use.from)}`;
+      const targetHandle = `t:${visiblePort(toCard, use.to)}`;
+      // Several links can collapse onto the same two connection points; draw that arrow once.
+      const id = `${edge.from}|${sourceHandle}->${edge.to}|${targetHandle}`;
+      edges.set(id, {
+        id,
+        source: edge.from, // the file that imports...
+        target: edge.to, // ...this one
+        sourceHandle,
+        targetHandle,
+        type: 'smoothstep',
+        markerEnd: { type: MarkerType.ArrowClosed },
+      });
+    }
+  }
 
-  return { nodes, edges };
+  return { nodes, edges: [...edges.values()] };
 }
 
 // ELK computes positions from the size of each box and the arrows between them.
@@ -42,29 +74,38 @@ const elk = new ELK();
 const LAYOUT_OPTIONS = {
   'elk.algorithm': 'layered', // arranges nodes in columns, minimizing crossing arrows
   'elk.direction': 'RIGHT',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '90',
-  'elk.spacing.nodeNode': '24',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '110',
+  'elk.spacing.nodeNode': '30',
   // Unconnected files form their own groups; keep the overall shape roughly screen-like.
   'elk.aspectRatio': '1.6',
 };
 
 /**
- * Position every box automatically. Files that are imported go on the left and the files that
+ * Position every card automatically. Files that are imported go on the left and the files that
  * import them on the right, so reading left to right follows the code from foundations to users.
  */
-export async function layoutGraph(graph: GraphModel): Promise<{ nodes: Node[]; edges: Edge[] }> {
-  const { nodes, edges } = toFlowElements(graph);
+export async function layoutGraph(
+  graph: GraphModel,
+  expanded: ReadonlySet<string> = new Set(),
+): Promise<{ nodes: FileCardNode[]; edges: Edge[] }> {
+  const { nodes, edges } = toFlowElements(graph, expanded);
   if (nodes.length === 0) {
     return { nodes, edges };
+  }
+
+  // The layout works on whole cards, so several symbol links between two cards count as one arrow.
+  const cardLinks = new Map<string, { from: string; to: string }>();
+  for (const edge of graph.edges) {
+    cardLinks.set(`${edge.from}\0${edge.to}`, { from: edge.from, to: edge.to });
   }
 
   const root: ElkNode = {
     id: 'root',
     layoutOptions: LAYOUT_OPTIONS,
-    children: nodes.map((node) => ({ id: node.id, width: NODE_WIDTH, height: NODE_HEIGHT })),
+    children: nodes.map((node) => ({ id: node.id, width: CARD_WIDTH, height: node.height })),
     // The layout sees every arrow reversed (imported file -> importing file), so that imported
     // files are placed first, on the left. The arrows we DRAW still point from importer to imported.
-    edges: edges.map((edge) => ({ id: edge.id, sources: [edge.target], targets: [edge.source] })),
+    edges: [...cardLinks.values()].map(({ from, to }, index) => ({ id: `e${index}`, sources: [to], targets: [from] })),
   };
 
   const laidOut = await elk.layout(root);

@@ -67,31 +67,192 @@ body {
   color: var(--vscode-errorForeground);
 }
 
-/* --- graph nodes (plain boxes for now; step 7c makes them file cards) --- */
-.react-flow__node-default {
-  width: 240px;
-  padding: 8px 10px;
-  border: 2px solid var(--vscode-panel-border);
+/* --- file cards: one class-diagram box per file --- */
+:root {
+  --vr-changed: #e5a000;
+  --vr-dependent: #4d9de0;
+  --vr-dependency: #8a8a8a;
+  --vr-card-bg: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  --vr-line: var(--vscode-panel-border, #444);
+}
+
+.file-card {
+  box-sizing: border-box;
+  border: 1px solid var(--vr-line);
+  border-left-width: 5px;
   border-radius: 6px;
-  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  background: var(--vr-card-bg);
   color: var(--vscode-foreground);
   font-size: 12px;
-  word-break: break-all;
+  overflow: visible;
 }
 
-.react-flow__node.status-changed {
-  border-color: #e5a000;
+.file-card.status-changed {
+  border-color: var(--vr-changed);
 }
 
-.react-flow__node.status-dependent {
-  border-color: #4d9de0;
+.file-card.status-dependent {
+  border-color: var(--vr-dependent);
 }
 
-.react-flow__node.status-dependency {
-  border-style: dashed;
-  border-color: #8a8a8a;
+.file-card.status-dependency {
+  border-color: var(--vr-dependency);
+  border-left-style: dashed;
 }
 
-.react-flow__node.status-unchanged {
-  opacity: 0.65;
+.file-card.status-unchanged {
+  opacity: 0.7;
+}
+
+.file-card__header {
+  position: relative; /* the connection points of the header are placed relative to it */
+  box-sizing: border-box;
+  padding: 7px 10px 0;
+  border-bottom: 1px solid var(--vr-line);
+  overflow: hidden;
+}
+
+.file-card__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.file-card__name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-card__folder {
+  margin-top: 3px;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl; /* when the folder is too long, keep the end (closest to the file) visible */
+  text-align: left;
+}
+
+.chip {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.chip-changed {
+  background: var(--vr-changed);
+  color: #1e1e1e;
+}
+
+.chip-dependent {
+  background: var(--vr-dependent);
+  color: #0b1d2e;
+}
+
+.chip-dependency {
+  background: var(--vr-dependency);
+  color: #1e1e1e;
+}
+
+.chip-entry {
+  border: 1px solid var(--vr-line);
+}
+
+.file-card__row {
+  position: relative; /* the row's two connection points sit on its left and right edge */
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.file-card__row.depth-1 {
+  padding-left: 30px;
+}
+
+.file-card__row.is-changed {
+  background: color-mix(in srgb, var(--vr-changed) 22%, transparent);
+  box-shadow: inset 3px 0 0 var(--vr-changed);
+}
+
+.file-card__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kind-badge {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  color: #1e1e1e;
+  background: #9e9e9e;
+}
+
+.kind-class {
+  background: #e8a35c;
+}
+.kind-interface {
+  background: #6fbf73;
+}
+.kind-component {
+  background: #5cb8e8;
+}
+.kind-hook {
+  background: #b58ce8;
+}
+.kind-function {
+  background: #e8d35c;
+}
+.kind-type,
+.kind-enum {
+  background: #7fd1c9;
+}
+.kind-method,
+.kind-property {
+  background: #c9c9c9;
+}
+
+.file-card__footer {
+  display: block;
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--vr-line);
+  background: transparent;
+  color: var(--vscode-textLink-foreground, var(--vr-dependent));
+  font-size: 11px;
+  text-align: left;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.file-card__footer:hover {
+  text-decoration: underline;
+}
+
+/* connection points: small dots on the left (arrows leave) and right (arrows arrive) edge of a row */
+.file-card .react-flow__handle {
+  width: 6px;
+  height: 6px;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  background: var(--vr-line);
+}
+
+.react-flow__edge-path {
+  stroke-width: 1.2;
 }
