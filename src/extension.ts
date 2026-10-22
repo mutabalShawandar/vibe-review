@@ -89,9 +89,15 @@ export function activate(context: vscode.ExtensionContext): void {
           );
           output.appendLine(`Symbols (${analysis.symbols.length}):`);
           for (const symbol of analysis.symbols) {
-            output.appendLine(`  ${symbol.kind.padEnd(9)} ${symbol.name}  [lines ${symbol.startLine}-${symbol.endLine}]`);
+            const uses = (names?: string[]) => (names ? `  uses: ${names.join(', ')}` : '');
+            const defaultMark = symbol.isDefault ? '  (default export)' : '';
+            output.appendLine(
+              `  ${symbol.kind.padEnd(9)} ${symbol.name}  [lines ${symbol.startLine}-${symbol.endLine}]${defaultMark}${uses(symbol.references)}`,
+            );
             for (const member of symbol.members ?? []) {
-              output.appendLine(`      ${member.kind.padEnd(9)} ${member.name}  [lines ${member.startLine}-${member.endLine}]`);
+              output.appendLine(
+                `      ${member.kind.padEnd(9)} ${member.name}  [lines ${member.startLine}-${member.endLine}]${uses(member.references)}`,
+              );
             }
           }
           output.appendLine(`Imports (${analysis.imports.length}):`);
@@ -162,6 +168,20 @@ export function activate(context: vscode.ExtensionContext): void {
         output.appendLine(
           `Graph (${scope}): ${graph.nodes.length} nodes ${JSON.stringify(summary)}, ${graph.edges.length} edges, review order: ${graph.reviewOrder.length} files`,
         );
+
+        // Review order and symbol-level links as plain text, to compare with the code by eye.
+        output.appendLine('Review order:');
+        graph.reviewOrder.forEach((file, index) => output.appendLine(`  ${index + 1}. ${file}`));
+
+        const name = (ref?: { symbol: string; member?: string }) =>
+          ref ? (ref.member ? `${ref.symbol}.${ref.member}` : ref.symbol) : '(file)';
+        const links = graph.edges.flatMap((edge) =>
+          edge.uses
+            .filter((use) => use.from || use.to)
+            .map((use) => `  ${edge.from} :: ${name(use.from)}  ->  ${edge.to} :: ${name(use.to)}`),
+        );
+        output.appendLine(`Symbol links (${links.length}${links.length > 80 ? ', first 80' : ''}):`);
+        links.slice(0, 80).forEach((line) => output.appendLine(line));
         output.show(true);
 
         const document = await vscode.workspace.openTextDocument({

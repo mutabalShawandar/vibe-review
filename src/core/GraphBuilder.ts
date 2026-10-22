@@ -1,3 +1,4 @@
+import { linkImports } from './linkSymbols';
 import type {
   AnalyzedFile,
   ChangeSet,
@@ -9,6 +10,8 @@ import type {
   LineRange,
   NodeStatus,
   SymbolInfo,
+  SymbolLink,
+  SymbolRef,
 } from './types';
 
 /**
@@ -59,6 +62,15 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
     return 'unchanged';
   };
 
+  // What exactly each arrow means: which symbol of the importing file uses which symbol of the other.
+  const linksByEdge = new Map<string, SymbolLink[]>();
+  for (const file of files) {
+    for (const [target, links] of linkImports(file, byPath)) {
+      linksByEdge.set(edgeKey(file.path, target), links);
+    }
+  }
+  const relevantSymbols = relevantSymbolKeys(linksByEdge, changedRanges);
+
   const nodes: GraphNode[] = [];
   for (const file of files) {
     const status = statusOf(file);
@@ -69,7 +81,12 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
       id: file.path,
       language: file.language,
       status,
-      symbols: markChangedSymbols(file.symbols, changedRanges.get(file.path)),
+      symbols: toGraphSymbols(
+        file.symbols,
+        changedRanges.get(file.path),
+        // A changed file lists everything it declares; others only what takes part in a link to a change.
+        status === 'changed' ? 'all' : (relevantSymbols.get(file.path) ?? new Set()),
+      ),
       ...(file.entryPoint ? { entryPoint: file.entryPoint } : {}),
     });
   }
@@ -81,7 +98,7 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
   for (const file of files) {
     for (const { file: target } of file.imports) {
       if (target !== file.path && shown.has(file.path) && shown.has(target)) {
-        edges.push({ from: file.path, to: target });
+        edges.push({ from: file.path, to: target, uses: linksByEdge.get(edgeKey(file.path, target)) ?? [{}] });
       }
     }
   }
@@ -91,13 +108,64 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
   return { scope, nodes, edges, reviewOrder: orderForReview(changed, byPath, importedBy) };
 }
 
-/** A symbol counts as changed when any changed line range overlaps its lines. Members are checked the same way. */
-function markChangedSymbols(symbols: SymbolInfo[], ranges: LineRange[] | undefined): GraphSymbol[] {
-  return symbols.map(({ members, ...symbol }) => ({
-    ...symbol,
-    changed: ranges?.some((range) => range.start <= symbol.endLine && range.end >= symbol.startLine) ?? false,
-    ...(members ? { members: markChangedSymbols(members, ranges) } : {}),
-  }));
+const edgeKey = (from: string, to: string) => `${from}\0${to}`;
+
+/** Key of a symbol (`UserService`) or one of its members (`UserService.find`) in the relevance sets. */
+const symbolKey = (ref: SymbolRef) => (ref.member ? `${ref.symbol}.${ref.member}` : ref.symbol);
+
+/**
+ * For files that are not themselves changed: the symbols worth showing, i.e. the ones on either
+ * end of a link to or from a changed file. Symbols that only talk to other unchanged files are left out.
+ * A member being relevant makes its class relevant too, so the card can show where it sits.
+ */
+function relevantSymbolKeys(
+  linksByEdge: Map<string, SymbolLink[]>,
+  changedRanges: Map<string, LineRange[]>,
+): Map<string, Set<string>> {
+  const relevant = new Map<string, Set<string>>();
+  const add = (file: string, ref: SymbolRef | undefined) => {
+    if (!ref) {
+      return;
+    }
+    const keys = relevant.get(file) ?? new Set<string>();
+    keys.add(ref.symbol);
+    keys.add(symbolKey(ref));
+    relevant.set(file, keys);
+  };
+
+  for (const [key, links] of linksByEdge) {
+    const [from, to] = key.split('\0');
+    if (!changedRanges.has(from) && !changedRanges.has(to)) {
+      continue; // an arrow between two untouched files
+    }
+    for (const link of links) {
+      add(from, link.from);
+      add(to, link.to);
+    }
+  }
+  return relevant;
+}
+
+/**
+ * Prepare symbols for the diagram. `changed`: a git change overlaps its lines (members are checked
+ * the same way). `relevant`: see GraphSymbol; `'all'` marks everything relevant.
+ */
+function toGraphSymbols(
+  symbols: SymbolInfo[],
+  ranges: LineRange[] | undefined,
+  relevant: 'all' | Set<string>,
+  parent?: string,
+): GraphSymbol[] {
+  // `references` is analysis input; the diagram does not need it, so it is left out here.
+  return symbols.map(({ members, references: _references, ...symbol }) => {
+    const key = parent ? `${parent}.${symbol.name}` : symbol.name;
+    return {
+      ...symbol,
+      changed: ranges?.some((range) => range.start <= symbol.endLine && range.end >= symbol.startLine) ?? false,
+      relevant: relevant === 'all' || relevant.has(key),
+      ...(members ? { members: toGraphSymbols(members, ranges, relevant, symbol.name) } : {}),
+    };
+  });
 }
 
 /**

@@ -36,6 +36,14 @@ export interface SymbolInfo {
   endLine: number;
   /** For classes and interfaces: their methods and properties, in source order. */
   members?: SymbolInfo[];
+  /**
+   * Which names brought in by this file's imports the symbol uses inside its body, by their
+   * local names (sorted, no duplicates). Absent when it uses none. Approximate: a local
+   * variable that reuses an imported name is counted as a use.
+   */
+  references?: string[];
+  /** The file's default export (`export default ...`), which is what `import X from './file'` receives. */
+  isDefault?: boolean;
 }
 
 /**
@@ -142,9 +150,15 @@ export type GraphScope = 'changes' | 'full';
  */
 export type NodeStatus = 'changed' | 'dependent' | 'dependency' | 'unchanged';
 
-/** A symbol as shown on a card; `changed` is true if a git change overlaps its lines. */
-export interface GraphSymbol extends Omit<SymbolInfo, 'members'> {
+/**
+ * A symbol as shown on a card.
+ *   changed  - a git change overlaps its lines
+ *   relevant - worth showing on a small card: every symbol of a changed file, and in connected
+ *              files only the symbols that use something from a change or are used by one
+ */
+export interface GraphSymbol extends Omit<SymbolInfo, 'members' | 'references'> {
   changed: boolean;
+  relevant: boolean;
   /** Members of a class or interface, each with its own `changed` flag. */
   members?: GraphSymbol[];
 }
@@ -161,10 +175,29 @@ export interface GraphNode {
   entryPoint?: string;
 }
 
+/** A symbol in a file, or one of its members: `{ symbol: 'UserService', member: 'find' }`. */
+export interface SymbolRef {
+  symbol: string;
+  member?: string;
+}
+
+/**
+ * One concrete use behind an arrow: `from` (a symbol in the importing file) uses `to` (a symbol
+ * in the imported file). A missing side means "the file as a whole": no symbol uses the import
+ * (side-effect or unused import), or the name is not a symbol of the imported file
+ * (`import * as db`, dynamic `import()`, or a name the file only re-exports).
+ */
+export interface SymbolLink {
+  from?: SymbolRef;
+  to?: SymbolRef;
+}
+
 /** An arrow in the diagram: the file `from` imports the file `to`. */
 export interface GraphEdge {
   from: string;
   to: string;
+  /** What exactly is used; always at least one entry. */
+  uses: SymbolLink[];
 }
 
 /** The complete diagram, as plain JSON that is sent to the webview. */

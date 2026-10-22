@@ -181,6 +181,61 @@ describe('TypeScriptStrategy.extract', () => {
     });
   });
 
+  describe('which imported names a symbol uses', () => {
+    const usageOf = async (fixture: string) =>
+      Object.fromEntries((await analyze(fixture)).symbols.map((s) => [s.name, s.references]));
+
+    it('lists the imported names each symbol uses, by local name', async () => {
+      expect(await usageOf('usage.tsx')).toEqual({
+        loadAll: ['getUsers'],
+        remove: ['db', 'deleteUser'], // `db.query()` is a use of the namespace `db`
+        Page: ['Button'], // a JSX tag counts
+        Row: ['User'], // so does a type
+        unrelated: undefined, // uses nothing that was imported
+        Service: ['Base', 'deleteUser', 'getUsers'], // `extends Base` and everything in its methods
+      });
+    });
+
+    it('lists the same for each method and property of a class', async () => {
+      const { symbols } = await analyze('usage.tsx');
+      const members = symbols.find((s) => s.name === 'Service')!.members!;
+      expect(Object.fromEntries(members.map((m) => [m.name, m.references]))).toEqual({
+        list: ['getUsers'],
+        drop: ['deleteUser'],
+        name: undefined,
+      });
+    });
+
+    it('ignores names that are not imports', async () => {
+      // page.tsx declares PAGE_SIZE itself and imports Link, getUsers and User
+      const { symbols } = await analyze('page.tsx');
+      const byName = Object.fromEntries(symbols.map((s) => [s.name, s.references]));
+      expect(byName['UsersPage']).toEqual(['Link', 'getUsers']);
+      expect(byName['Helper']).toEqual(['User']);
+      expect(byName['PAGE_SIZE']).toBeUndefined();
+    });
+
+    it('does not report anything for a file without imports', async () => {
+      const { symbols } = await analyze('types.ts');
+      expect(symbols.every((s) => s.references === undefined)).toBe(true);
+    });
+  });
+
+  describe('default exports', () => {
+    it('marks `export default function`, `export default class` and `export default Name;`', async () => {
+      const defaults = async (fixture: string) =>
+        (await analyze(fixture)).symbols.filter((s) => s.isDefault).map((s) => s.name);
+
+      expect(await defaults('page.tsx')).toEqual(['UsersPage']); // export default async function
+      expect(await defaults('hook.ts')).toEqual(['Store']); // export default class
+      expect(await defaults('usage.tsx')).toEqual(['Page']); // export default Page;
+    });
+
+    it('does not mark anything in a file without a default export', async () => {
+      expect((await analyze('route.ts')).symbols.some((s) => s.isDefault)).toBe(false);
+    });
+  });
+
   it('returns nothing for an empty file', async () => {
     const tree = await loader.parse(strategy.grammarFor('empty.ts'), '');
     try {

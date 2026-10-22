@@ -67,8 +67,8 @@ describe('scope', () => {
     expect(graph.scope).toBe('changes');
     expect(graph.nodes.map((n) => n.id)).toEqual(['button.tsx', 'page.tsx', 'utils.ts']);
     expect(graph.edges).toEqual([
-      { from: 'button.tsx', to: 'utils.ts' },
-      { from: 'page.tsx', to: 'button.tsx' },
+      { from: 'button.tsx', to: 'utils.ts', uses: [{}] },
+      { from: 'page.tsx', to: 'button.tsx', uses: [{}] },
     ]);
   });
 
@@ -89,7 +89,7 @@ describe('scope', () => {
 describe('edges', () => {
   it('drops imports of files that were not analyzed and self-imports', () => {
     const graph = buildGraph([file('a.ts', ['missing.ts', 'a.ts', 'b.ts']), file('b.ts')], [modified('a.ts', [1, 1])], 'full');
-    expect(graph.edges).toEqual([{ from: 'a.ts', to: 'b.ts' }]);
+    expect(graph.edges).toEqual([{ from: 'a.ts', to: 'b.ts', uses: [{}] }]);
   });
 });
 
@@ -144,9 +144,112 @@ describe('changed members', () => {
     ]);
   });
 
+  it('keeps analysis-only data (references) out of the diagram data, but keeps the default marker', () => {
+    const symbol: SymbolInfo = {
+      name: 'Page',
+      kind: 'component',
+      startLine: 1,
+      endLine: 3,
+      references: ['getUsers'],
+      isDefault: true,
+      members: [{ name: 'run', kind: 'method', startLine: 2, endLine: 2, references: ['getUsers'] }],
+    };
+    const graph = buildGraph([file('a.ts', [], [symbol])], [], 'full');
+    const shown = graph.nodes[0].symbols[0];
+    expect('references' in shown).toBe(false);
+    expect('references' in shown.members![0]).toBe(false);
+    expect(shown.isDefault).toBe(true);
+  });
+
   it('leaves symbols without members free of a members field', () => {
     const graph = buildGraph([file('a.ts', [], [{ name: 'f', kind: 'function', startLine: 1, endLine: 2 }])], [], 'full');
     expect('members' in graph.nodes[0].symbols[0]).toBe(false);
+  });
+});
+
+describe('symbol links and relevance', () => {
+  const sym = (name: string, references?: string[], members?: SymbolInfo[]): SymbolInfo => ({
+    name,
+    kind: 'function',
+    startLine: 1,
+    endLine: 1,
+    ...(references ? { references } : {}),
+    ...(members ? { members } : {}),
+  });
+  const binding = (imported: string) => ({ imported, local: imported, typeOnly: false, reexport: false });
+
+  // users.ts (changed: getUsers) <- page.tsx (UsersPage uses getUsers, Footer uses nothing)
+  //                              <- other.ts (Other uses deleteUser, which was NOT changed)
+  const users: AnalyzedFile = {
+    ...file('users.ts', [], [], ),
+    symbols: [{ ...sym('getUsers'), startLine: 1, endLine: 5 }, { ...sym('deleteUser'), startLine: 10, endLine: 15 }],
+  };
+  const page: AnalyzedFile = {
+    ...file('page.tsx'),
+    symbols: [sym('UsersPage', ['getUsers']), sym('Footer')],
+    imports: [{ file: 'users.ts', bindings: [binding('getUsers')] }],
+  };
+  const other: AnalyzedFile = {
+    ...file('other.ts'),
+    symbols: [sym('Other', ['deleteUser'])],
+    imports: [{ file: 'users.ts', bindings: [binding('deleteUser')] }],
+  };
+  const files = [users, page, other];
+  const changes = [modified('users.ts', [2, 3])];
+
+  it('describes each arrow by the symbols involved', () => {
+    const graph = buildGraph(files, changes, 'changes');
+    expect(graph.edges.find((e) => e.from === 'page.tsx')!.uses).toEqual([
+      { from: { symbol: 'UsersPage' }, to: { symbol: 'getUsers' } },
+    ]);
+  });
+
+  it('shows every symbol of a changed file as relevant', () => {
+    const node = buildGraph(files, changes, 'changes').nodes.find((n) => n.id === 'users.ts')!;
+    expect(node.symbols.map((s) => [s.name, s.changed, s.relevant])).toEqual([
+      ['getUsers', true, true],
+      ['deleteUser', false, true], // not changed, but a changed file lists everything it declares
+    ]);
+  });
+
+  it('marks only the symbols connected to a change as relevant in other files', () => {
+    const graph = buildGraph(files, changes, 'changes');
+    const pageNode = graph.nodes.find((n) => n.id === 'page.tsx')!;
+    expect(pageNode.symbols.map((s) => [s.name, s.relevant])).toEqual([
+      ['UsersPage', true], // uses getUsers from the changed file
+      ['Footer', false], // unrelated to the change
+    ]);
+  });
+
+  it('is relevant also when the other file is the one that changed (symbols a change depends on)', () => {
+    // page.tsx changed; it uses getUsers from users.ts, which is NOT changed
+    const graph = buildGraph(files, [modified('page.tsx', [1, 1])], 'changes');
+    const usersNode = graph.nodes.find((n) => n.id === 'users.ts')!;
+    expect(usersNode.status).toBe('dependency');
+    expect(usersNode.symbols.map((s) => [s.name, s.relevant])).toEqual([
+      ['getUsers', true], // used by the changed file
+      ['deleteUser', false],
+    ]);
+  });
+
+  it('marks nothing relevant in files that only link to other untouched files (full view)', () => {
+    const graph = buildGraph(files, [], 'full');
+    expect(graph.nodes.flatMap((n) => n.symbols).every((s) => !s.relevant)).toBe(true);
+  });
+
+  it('makes a class relevant when one of its members is', () => {
+    const service = sym('Service', ['getUsers'], [sym('list', ['getUsers']), sym('idle')]);
+    const consumer: AnalyzedFile = {
+      ...file('consumer.ts'),
+      symbols: [service],
+      imports: [{ file: 'users.ts', bindings: [binding('getUsers')] }],
+    };
+    const node = buildGraph([users, consumer], changes, 'changes').nodes.find((n) => n.id === 'consumer.ts')!;
+    expect(node.symbols[0].relevant).toBe(true);
+    expect(node.symbols[0].members!.map((m) => [m.name, m.relevant])).toEqual([
+      ['list', true],
+      ['idle', false],
+    ]);
   });
 });
 

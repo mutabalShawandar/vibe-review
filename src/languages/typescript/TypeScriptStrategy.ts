@@ -38,10 +38,11 @@ export class TypeScriptStrategy implements LanguageStrategy {
   extract(file: ParsedFile): FileAnalysis {
     const queries = this.queriesFor(file.tree.language);
     const root = file.tree.rootNode;
-    return {
-      symbols: this.extractSymbols(queries.symbols, root),
-      imports: this.extractImports(queries.imports, root),
-    };
+    const imports = this.extractImports(queries.imports, root);
+
+    // The names this file gets from its imports: the only identifiers worth tracking inside symbols.
+    const importedNames = new Set(imports.flatMap((i) => i.bindings.map((b) => b.local)).filter((name) => name !== ''));
+    return { symbols: this.extractSymbols(queries.symbols, root, importedNames), imports };
   }
 
   resolveImport(specifier: string, fromFile: string, ctx: ResolveContext): string | undefined {
@@ -57,7 +58,7 @@ export class TypeScriptStrategy implements LanguageStrategy {
     return queries;
   }
 
-  private extractSymbols(query: Query, root: Node): SymbolInfo[] {
+  private extractSymbols(query: Query, root: Node, importedNames: Set<string>): SymbolInfo[] {
     // Keyed by "name@startLine" so the same declaration found twice collapses to one entry.
     const found = new Map<string, SymbolInfo>();
 
@@ -70,13 +71,17 @@ export class TypeScriptStrategy implements LanguageStrategy {
 
       const node = declaration.node;
       const kind = refineKind(declaration.name as SymbolKind, name, node);
-      const members = kind === 'class' || kind === 'interface' ? membersOf(node) : [];
+      const members = kind === 'class' || kind === 'interface' ? membersOf(node, importedNames) : [];
+      const references = referencesIn(node, importedNames);
       const symbol: SymbolInfo = {
         name,
         kind,
         startLine: node.startPosition.row + 1,
         endLine: lastLineOf(node),
         ...(members.length > 0 ? { members } : {}),
+        ...(references ? { references } : {}),
+        // `export default function Page() {}` or `export default class Store {}`
+        ...(isDefaultExport(node) ? { isDefault: true } : {}),
       };
 
       // `const Page = () => {}` matches both the "function" and the generic "variable"
@@ -84,6 +89,18 @@ export class TypeScriptStrategy implements LanguageStrategy {
       const key = `${name}@${symbol.startLine}`;
       if (found.get(key) === undefined || found.get(key)!.kind === 'variable') {
         found.set(key, symbol);
+      }
+    }
+
+    // `export default Page;` makes an already declared symbol the default export.
+    for (const statement of root.namedChildren) {
+      const value = statement && isDefaultExport(statement) ? statement.childForFieldName('value') : null;
+      if (value?.type === 'identifier') {
+        for (const symbol of found.values()) {
+          if (symbol.name === value.text) {
+            symbol.isDefault = true;
+          }
+        }
       }
     }
 
@@ -125,8 +142,35 @@ function refineKind(kind: SymbolKind, name: string, node: Node): SymbolKind {
   return kind;
 }
 
+// Syntax-tree node types that hold a name written in code: variables and functions, types,
+// and the name in `{ user }` shorthand. Property names after a dot (`a.b`) are a different
+// node type, so `db.query` counts as a use of `db` but not of anything called `query`.
+const NAME_NODES = ['identifier', 'type_identifier', 'shorthand_property_identifier'];
+
+/**
+ * The imported names (by local name) that appear inside a node, sorted. Undefined if none.
+ * JSX tag names such as `<Button />` are plain identifiers, so components are found too.
+ */
+function referencesIn(node: Node, importedNames: Set<string>): string[] | undefined {
+  if (importedNames.size === 0) {
+    return undefined;
+  }
+  const used = new Set<string>();
+  for (const name of node.descendantsOfType(NAME_NODES)) {
+    if (name && importedNames.has(name.text)) {
+      used.add(name.text);
+    }
+  }
+  return used.size > 0 ? [...used].sort() : undefined;
+}
+
+/** True for `export default ...` statements, whatever follows `default`. */
+function isDefaultExport(node: Node): boolean {
+  return node.type === 'export_statement' && node.children.some((child) => child?.type === 'default');
+}
+
 /** Methods and properties declared directly inside a class or interface. */
-function membersOf(node: Node): SymbolInfo[] {
+function membersOf(node: Node, importedNames: Set<string>): SymbolInfo[] {
   // For `export class X {}` the query captured the export statement; the class is inside it.
   const declaration = node.type === 'export_statement' ? node.childForFieldName('declaration') : node;
   const body = declaration?.childForFieldName('body');
@@ -144,7 +188,14 @@ function membersOf(node: Node): SymbolInfo[] {
     // A getter and setter, or overloads, share a name; list the member once.
     const key = `${kind}:${name}`;
     if (!members.has(key)) {
-      members.set(key, { name, kind, startLine: child.startPosition.row + 1, endLine: lastLineOf(child) });
+      const references = referencesIn(child, importedNames);
+      members.set(key, {
+        name,
+        kind,
+        startLine: child.startPosition.row + 1,
+        endLine: lastLineOf(child),
+        ...(references ? { references } : {}),
+      });
     }
   }
   return [...members.values()];
