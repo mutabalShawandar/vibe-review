@@ -4,6 +4,19 @@
   "description": "Live dependency diagram of your git changes, so you know where to start reviewing AI-generated code.",
   "version": "0.0.1",
   "license": "MIT",
+  "homepage": "https://github.com/mutabalShawandar/vibe-review#readme",
+  "bugs": {
+    "url": "https://github.com/mutabalShawandar/vibe-review/issues"
+  },
+  "keywords": [
+    "code review",
+    "ai",
+    "vibe coding",
+    "dependency graph",
+    "git diff",
+    "claude code",
+    "copilot"
+  ],
   "publisher": "mutabalShawandar",
   "repository": {
     "type": "git",

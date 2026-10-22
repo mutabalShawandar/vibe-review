@@ -11,7 +11,7 @@
 - [ ] refactor / chore / docs / test
 
 ## How was this tested?
-<!-- Unit tests added/updated? Manual check in the Extension Development Host (F5)? On which sample project? -->
+<!-- Unit tests added/updated? Manual check with `npm run host` (or F5)? On which sample project? -->
 
 ## Screenshots
 <!-- Required if the diagram or UI changed. -->

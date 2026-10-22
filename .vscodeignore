@@ -3,6 +3,9 @@
 src/**
 node_modules/**
 PLAN.md
+docs/**
+SECURITY.md
+CHANGELOG.md
 CONTRIBUTING.md
 CODE_OF_CONDUCT.md
 esbuild.mjs
