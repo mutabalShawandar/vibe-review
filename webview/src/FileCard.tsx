@@ -5,7 +5,12 @@ import { CARD_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, ROW_HEIGHT, splitPath } from 
 import type { FileCardNode } from './layout';
 
 /** Lets a card ask the app to expand or collapse it, without passing callbacks through React Flow's node data. */
-export const CardActions = createContext<{ toggle(id: string): void }>({ toggle() {} });
+export const CardActions = createContext<{
+  toggle(id: string): void;
+  /** The pointer is over a card (or one symbol row of it): highlight what it is connected to. */
+  focus(id: string, key?: string): void;
+  blur(): void;
+}>({ toggle() {}, focus() {}, blur() {} });
 
 // A short mark and a name for each kind of symbol, like the icons in a class diagram.
 const KIND: Record<SymbolKind, { mark: string; name: string }> = {
@@ -34,8 +39,8 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
  * symbol uses something, and arrive on the right, where something else uses the symbol.
  */
 export function FileCard({ id, data }: NodeProps<FileCardNode>) {
-  const { node, card, expanded } = data;
-  const { toggle } = useContext(CardActions);
+  const { node, card, expanded, marks } = data;
+  const { toggle, focus, blur } = useContext(CardActions);
   const updateNodeInternals = useUpdateNodeInternals();
 
   // Rows appear and disappear when the card is expanded; React Flow must measure the new connection points.
@@ -45,8 +50,13 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
   const seenKeys = new Set<string>(); // a type and a function can share a name; only the first row gets arrows
 
   return (
-    <div className={`file-card status-${node.status}`} style={{ width: CARD_WIDTH }}>
-      <header className="file-card__header" style={{ height: HEADER_HEIGHT }} title={node.id}>
+    <div className={`file-card status-${node.status}`} style={{ width: CARD_WIDTH }} onMouseLeave={blur}>
+      <header
+        className="file-card__header"
+        style={{ height: HEADER_HEIGHT }}
+        title={node.id}
+        onMouseEnter={() => focus(id)}
+      >
         <Handle id="s:file" type="source" position={Position.Left} />
         <Handle id="t:file" type="target" position={Position.Right} />
         <div className="file-card__title">
@@ -63,8 +73,9 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
         return (
           <div
             key={`${index}:${row.key}`}
-            className={`file-card__row depth-${row.depth}${row.changed ? ' is-changed' : ''}`}
+            className={`file-card__row depth-${row.depth}${row.changed ? ' is-changed' : ''}${marks?.[row.key] ? ` mark-${marks[row.key]}` : ''}`}
             style={{ height: ROW_HEIGHT }}
+            onMouseEnter={() => focus(id, row.key)}
             title={`${KIND[row.kind].name} ${row.label}${row.changed ? ' (changed)' : ''}`}
           >
             {first && <Handle id={`s:${row.key}`} type="source" position={Position.Left} />}

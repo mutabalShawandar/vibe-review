@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GraphModel } from '../src/core/types';
-import { layoutGraph, NODE_HEIGHT, NODE_WIDTH, toFlowElements } from '../webview/src/layout';
+import { CARD_WIDTH, layoutGraph, toFlowElements } from '../webview/src/layout';
 
 const graph: GraphModel = {
   scope: 'changes',
@@ -24,14 +24,14 @@ describe('toFlowElements', () => {
       ['b.ts', 'status-dependent'],
       ['c.ts', 'status-dependency'],
     ]);
-    expect(nodes[0].data.label).toBe('a.ts');
+    expect(nodes[0].data.node.id).toBe('a.ts');
   });
 
   it('draws an arrow from the importing file to the imported file', () => {
     const { edges } = toFlowElements(graph);
-    expect(edges.map((e) => [e.id, e.source, e.target])).toEqual([
-      ['b.ts->a.ts', 'b.ts', 'a.ts'],
-      ['a.ts->c.ts', 'a.ts', 'c.ts'],
+    expect(edges.map((e) => [e.source, e.target])).toEqual([
+      ['b.ts', 'a.ts'],
+      ['a.ts', 'c.ts'],
     ]);
   });
 
@@ -72,8 +72,8 @@ describe('layoutGraph', () => {
     for (const a of nodes) {
       for (const b of nodes) {
         if (a.id < b.id) {
-          const apartX = Math.abs(a.position.x - b.position.x) >= NODE_WIDTH;
-          const apartY = Math.abs(a.position.y - b.position.y) >= NODE_HEIGHT;
+          const apartX = Math.abs(a.position.x - b.position.x) >= CARD_WIDTH;
+          const apartY = Math.abs(a.position.y - b.position.y) >= (a.position.y < b.position.y ? a.height! : b.height!);
           expect(apartX || apartY, `${a.id} overlaps ${b.id}`).toBe(true);
         }
       }

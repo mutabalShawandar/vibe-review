@@ -255,4 +255,36 @@ body {
 
 .react-flow__edge-path {
   stroke-width: 1.2;
+  transition: opacity 0.12s, stroke-width 0.12s;
+}
+
+/* Hover focus: the arrows of the hovered card or symbol stand out, the rest fades back. */
+.react-flow__edge.is-hot .react-flow__edge-path {
+  stroke-width: 2.6;
+}
+.react-flow__edge.is-dim {
+  opacity: 0.12;
+}
+.react-flow__node.is-dim {
+  opacity: 0.35;
+}
+.react-flow__node {
+  transition: opacity 0.12s;
+}
+.file-card__row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* Hover route: the hovered symbol, what it uses (blue) and what uses it (orange). */
+.file-card__row.mark-self {
+  background: color-mix(in srgb, var(--vscode-focusBorder, #3794ff) 35%, transparent);
+  font-weight: 600;
+}
+.file-card__row.mark-uses {
+  background: color-mix(in srgb, #3794ff 25%, transparent);
+  box-shadow: inset 3px 0 0 #3794ff;
+}
+.file-card__row.mark-usedBy {
+  background: color-mix(in srgb, #e08a1e 25%, transparent);
+  box-shadow: inset 3px 0 0 #e08a1e;
 }

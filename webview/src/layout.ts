@@ -8,11 +8,25 @@ export interface CardData extends Record<string, unknown> {
   node: GraphNode;
   card: Card;
   expanded: boolean;
+  /** While hovering: how each row (by key) relates to the hovered symbol. Absent when nothing is hovered. */
+  marks?: Record<string, RowMark>;
 }
+
+/** `self` is the hovered symbol, `uses` is something it relies on (directly or not), `usedBy` something that relies on it. */
+export type RowMark = 'self' | 'uses' | 'usedBy';
 export type FileCardNode = Node<CardData, 'fileCard'>;
 
 // Kept for tests and callers that need the size of a collapsed card of a given file.
 export { CARD_WIDTH };
+
+/** A stable color per file: the same path always gets the same hue, readable on light and dark themes. */
+export function edgeColor(fileId: string): string {
+  let hash = 0;
+  for (const char of fileId) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return `hsl(${(hash * 137) % 360} 65% 55%)`;
+}
 
 /**
  * Turn the extension's GraphModel into what React Flow draws, without positions yet.
@@ -60,7 +74,9 @@ export function toFlowElements(
         sourceHandle,
         targetHandle,
         type: 'smoothstep',
-        markerEnd: { type: MarkerType.ArrowClosed },
+        // All arrows leaving one file share a color, so a file's dependencies read as one group.
+        style: { stroke: edgeColor(edge.from) },
+        markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor(edge.from) },
       });
     }
   }
