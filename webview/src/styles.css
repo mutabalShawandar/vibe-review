@@ -437,3 +437,131 @@ body {
   height: 10px;
   border-radius: 2px;
 }
+
+/* --- live edits: what was just edited pulses for a few seconds --- */
+.file-card.is-fresh {
+  animation: vr-card-pulse 2.4s ease-out 2;
+}
+.file-card__row.row-fresh {
+  animation: vr-row-pulse 2.4s ease-out 3;
+}
+@keyframes vr-card-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--vr-changed) 85%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+@keyframes vr-row-pulse {
+  0% {
+    background: color-mix(in srgb, var(--vr-changed) 55%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.follow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.follow select {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+/* --- a file that is being written right now --- */
+.file-card.is-editing {
+  border-color: var(--vr-changed);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vr-changed) 55%, transparent);
+  animation: vr-editing-glow 1.2s ease-in-out infinite alternate;
+}
+@keyframes vr-editing-glow {
+  from {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--vr-changed) 30%, transparent);
+  }
+  to {
+    box-shadow: 0 0 10px 3px color-mix(in srgb, var(--vr-changed) 70%, transparent);
+  }
+}
+.chip-editing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--vr-changed);
+  color: #1e1e1e;
+}
+.typing {
+  display: inline-flex;
+  gap: 2px;
+}
+.typing i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: vr-typing 1s ease-in-out infinite;
+}
+.typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes vr-typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* --- placeholder for a file that is being written but not in the diagram yet --- */
+.placeholder-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 14px;
+  border: 2px dashed var(--vr-changed);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--vr-changed) 8%, var(--vr-card-bg));
+  animation: vr-editing-glow 1.2s ease-in-out infinite alternate;
+}
+.placeholder-card__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vr-changed);
+}
+.placeholder-card__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.placeholder-card__hint {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.message.working {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--vr-changed);
+}

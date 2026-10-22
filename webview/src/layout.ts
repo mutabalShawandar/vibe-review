@@ -16,6 +16,10 @@ export interface CardData extends Record<string, unknown> {
   reveal?: ReadonlySet<string>;
   /** Set on changed files: the place in the feature's reading order (1 = start here) and the feature's color. */
   review?: { order: number; color: string };
+  /** Set on cards of files edited a moment ago: the rows (keys) that are new or different. */
+  fresh?: { rows: ReadonlySet<string> };
+  /** True while the file is being written (a write happened a moment ago). */
+  editing?: boolean;
 }
 
 /** `self` is the hovered symbol, `uses` is something it relies on (directly or not), `usedBy` something that relies on it. */

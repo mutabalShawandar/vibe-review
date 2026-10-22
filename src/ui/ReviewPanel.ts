@@ -129,6 +129,12 @@ export class ReviewPanel {
       }),
       // Files changed on disk (an agent writing, a checkout...): show the new state without being asked.
       watcher.onDidChange(() => this.refresh()),
+      watcher.onDidTouch((files) => {
+        const code = files.filter((file) => this.graphService.canAnalyze(file));
+        if (this.panel.visible && code.length > 0) {
+          this.post({ type: 'editing', files: code });
+        }
+      }),
       panel.onDidChangeViewState(() => {
         if (panel.visible && this.stale) {
           this.refresh();
@@ -171,7 +177,14 @@ export class ReviewPanel {
     }
     const first = Math.max(0, message.line - 1);
     const last = Math.max(first, (message.endLine ?? message.line) - 1);
-    const cursor = Math.max(0, (message.focusLine ?? message.line) - 1);
+    // Land on the first line of the symbol that git says changed (the reader came to see the change);
+    // a link from the hover asks for a specific line instead.
+    const changedInside = this.changes
+      .find((change) => change.path === message.file)
+      ?.ranges.filter((range) => range.end >= message.line && range.start <= (message.endLine ?? message.line))
+      .map((range) => Math.max(range.start, message.line))
+      .sort((a, b) => a - b)[0];
+    const cursor = Math.max(0, (message.focusLine ?? changedInside ?? message.line) - 1);
     try {
       // The cursor goes to the symbol (or the line that depends on it) instead of selecting it; the
       // symbol is marked with a color (below), so the code stays readable.
@@ -353,14 +366,15 @@ export class ReviewPanel {
       this.post({ type: 'loading', message: 'Analyzing workspace...' });
     }
     try {
-      const { graph, changes } = await this.graphService.build(folder.uri.fsPath, this.scope, (done, total) => {
+      const { graph, changes, analysis } = await this.graphService.build(folder.uri.fsPath, this.scope, (done, total) => {
         if (loadId === this.loadCounter && !silent) {
           this.post({ type: 'loading', message: `Analyzing workspace... ${done}/${total} files` });
         }
       });
       if (loadId === this.loadCounter) {
         this.changes = changes;
-        this.post({ type: 'graph', graph });
+        // Only a refresh knows what was edited; the first load parses everything and would flag every file.
+        this.post({ type: 'graph', graph, touched: silent ? analysis.reparsed : [] });
       }
     } catch (error) {
       if (loadId === this.loadCounter) {

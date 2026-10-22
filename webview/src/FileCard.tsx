@@ -41,7 +41,7 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
  * symbol uses something, and arrive on the right, where something else uses the symbol.
  */
 export function FileCard({ id, data }: NodeProps<FileCardNode>) {
-  const { node, expanded, marks, review, reveal } = data;
+  const { node, expanded, marks, review, reveal, fresh, editing } = data;
   // Hovering a route lists the rows on it that the card normally hides (the card grows downward over its neighbors).
   const card = useMemo(() => (reveal ? buildCard(node, expanded, reveal) : data.card), [node, expanded, reveal, data.card]);
   const { toggle, focus, blur, open } = useContext(CardActions);
@@ -54,7 +54,7 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
   const seenKeys = new Set<string>(); // a type and a function can share a name; only the first row gets arrows
 
   return (
-    <div className={`file-card status-${node.status}`} style={{ width: CARD_WIDTH }} onMouseLeave={blur}>
+    <div className={`file-card status-${node.status}${fresh ? ' is-fresh' : ''}${editing ? ' is-editing' : ''}`} style={{ width: CARD_WIDTH }} onMouseLeave={blur}>
       <header
         className="file-card__header"
         style={{ height: HEADER_HEIGHT }}
@@ -72,6 +72,16 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
           )}
           <span className="file-card__name">{name}</span>
           {STATUS_LABEL[node.status] && <span className={`chip chip-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
+          {editing && (
+            <span className="chip chip-editing" title="This file is being written right now">
+              editing
+              <span className="typing">
+                <i />
+                <i />
+                <i />
+              </span>
+            </span>
+          )}
           {review?.order === 1 && <span className="chip chip-start">start here</span>}
           {node.entryPoint && <span className="chip chip-entry">{node.entryPoint}</span>}
         </div>
@@ -84,7 +94,7 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
         return (
           <div
             key={`${index}:${row.key}`}
-            className={`file-card__row depth-${row.depth}${row.changed ? ' is-changed' : ''}${marks?.[row.key] ? ` mark-${marks[row.key]}` : ''}`}
+            className={`file-card__row depth-${row.depth}${row.changed ? ' is-changed' : ''}${marks?.[row.key] ? ` mark-${marks[row.key]}` : ''}${fresh?.rows.has(row.key) ? ' row-fresh' : ''}`}
             style={{ height: ROW_HEIGHT }}
             onMouseEnter={() => focus(id, row.key)}
             onClick={() => open(id, row.key)}

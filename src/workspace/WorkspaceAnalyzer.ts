@@ -21,6 +21,8 @@ export interface AnalysisResult {
   files: AnalyzedFile[];
   /** Files that could not be analyzed, with the reason. */
   skipped: { path: string; reason: string }[];
+  /** Files parsed again this time because they were new or edited, newest edit first. */
+  reparsed: string[];
   /** Where the time went, to explain a slow scan. */
   stats: { listMs: number; parseMs: number; resolveMs: number; parsedFiles: number; cachedFiles: number };
 }
@@ -61,6 +63,7 @@ export class WorkspaceAnalyzer {
     const skipped: AnalysisResult['skipped'] = [];
     const parsed = new Map<string, CachedFile>();
     let cachedFiles = 0;
+    const reparsed: { file: string; mtimeMs: number }[] = [];
     const parseStart = Date.now();
 
     for (const [index, file] of codeFiles.entries()) {
@@ -70,6 +73,8 @@ export class WorkspaceAnalyzer {
           parsed.set(file, result.cached);
           if (result.fromCache) {
             cachedFiles++;
+          } else {
+            reparsed.push({ file, mtimeMs: result.cached.mtimeMs });
           }
         }
       } catch (error) {
@@ -128,7 +133,8 @@ export class WorkspaceAnalyzer {
       parsedFiles: parsed.size - cachedFiles,
       cachedFiles,
     };
-    return { files, skipped, stats };
+    reparsed.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return { files, skipped, reparsed: reparsed.map((entry) => entry.file), stats };
   }
 
   /** Analyze one file, reusing the cached result if the file has not changed. */

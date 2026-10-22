@@ -26,6 +26,11 @@ export class GraphService {
     private readonly parser: ParserLoader,
   ) {}
 
+  /** Whether a language strategy handles this file, i.e. whether it can ever appear in the diagram. */
+  canAnalyze(file: string): boolean {
+    return this.registry.forFile(file) !== undefined;
+  }
+
   async build(
     root: string,
     scope: GraphScope,

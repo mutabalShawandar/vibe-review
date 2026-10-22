@@ -6,8 +6,11 @@ import type { GraphModel, GraphScope } from '../core/types';
 /** Extension -> webview. */
 export type HostMessage =
   | { type: 'loading'; message: string }
-  | { type: 'graph'; graph: GraphModel }
+  // `touched`: files edited since the previous graph (newest first). Empty for the first graph of a view.
+  | { type: 'graph'; graph: GraphModel; touched: string[] }
   | { type: 'error'; message: string }
+  // Files written a moment ago (while an edit may still be going on), so the graph can show them as being edited.
+  | { type: 'editing'; files: string[] }
   // Walk the route: show this symbol (or file) in the editor, as if it had been clicked in the graph.
   | { type: 'navigate'; file: string; key?: string; line?: number };
 
