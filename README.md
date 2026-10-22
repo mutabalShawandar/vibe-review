@@ -117,7 +117,7 @@ See [PLAN.md](PLAN.md) for the full design.
 
 ## Contributing
 
-Contributions are welcome, especially new languages. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. The short version: one folder per language, registered in one line, with tests. Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
+Contributions are welcome, especially new languages. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. The short version: fork the repository, work on a branch, and open a pull request; a new language is one folder, registered in one line, with tests. Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 Run the checks before opening a pull request:
 
@@ -125,6 +125,8 @@ Run the checks before opening a pull request:
 npm run typecheck
 npm test
 ```
+
+If Vibe Review is useful to you, a star on the repository helps other people find it.
 
 ## License
 

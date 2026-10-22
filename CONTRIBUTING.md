@@ -8,9 +8,12 @@ Please read the [Code of Conduct](CODE_OF_CONDUCT.md) first. For bugs and ideas,
 
 You need VS Code 1.90 or newer, Node.js 22 or newer, git, and the `code` command on your PATH (in VS Code: *Command Palette → Shell Command: Install 'code' command in PATH*; on Windows the installer adds it).
 
+First **fork** the repository (the *Fork* button at the top right of the GitHub page), then clone **your fork**. You cannot push to the main repository, so work always goes through a fork:
+
 ```bash
-git clone https://github.com/mutabalShawandar/vibe-review.git
+git clone https://github.com/<your-username>/vibe-review.git
 cd vibe-review
+git remote add upstream https://github.com/mutabalShawandar/vibe-review.git   # to pull in new changes later
 npm install
 npm test            # unit tests (vitest)
 npm run typecheck   # extension host and webview
@@ -81,6 +84,19 @@ This is the contribution we want most. A language is one folder plus one line.
 ## Working on the webview
 
 The graph, sidebar and cards live in `webview/src/`. Pure logic (grouping, routes, what's fresh, card rows) is in plain `.ts` files and is unit-tested (`test/route.test.ts`, `test/review.test.ts`, `test/card.test.ts`...). Keep it that way: logic in a testable function, rendering in the component. Colors come from VS Code theme variables (`--vscode-*`) so every theme works; check your change in a light and a dark theme.
+
+## Making a change
+
+1. **Fork and clone** as described in *Setup*. Never work on `main` of your fork; make a branch for each change.
+2. **Create a branch** from an up-to-date `main`: `git switch -c feat/nextjs-entry-points` (a short name that says what it does).
+3. **Make the change**, with tests, and run `npm run typecheck` and `npm test`.
+4. **Commit** using the conventions below, then **push the branch to your fork**: `git push -u origin feat/nextjs-entry-points`.
+5. **Open a pull request** from your branch to `main` of the main repository (GitHub offers a button right after you push). Fill in the template.
+6. **Respond to review** by pushing more commits to the same branch; the pull request updates by itself.
+
+To pick up changes made upstream while you work: `git fetch upstream` and then `git rebase upstream/main` (or merge it) on your branch.
+
+New to open source? Start with an issue labeled [good first issue](https://github.com/mutabalShawandar/vibe-review/labels/good%20first%20issue), and comment on it so nobody else starts the same work. Questions are welcome in the issue.
 
 ## Commits
 
