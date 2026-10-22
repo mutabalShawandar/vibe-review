@@ -4,6 +4,8 @@ import { GitChangeProvider } from './changes/GitChangeProvider';
 import type { GraphScope } from './core/types';
 import { createRegistry } from './languages';
 import { ReviewPanel } from './ui/ReviewPanel';
+import { ReviewStatusBar } from './ui/ReviewStatusBar';
+import { ChangeWatcher } from './workspace/ChangeWatcher';
 import { ParserLoader } from './parser/ParserLoader';
 import { NodeResolveContext } from './workspace/NodeResolveContext';
 import { GraphService } from './workspace/GraphService';
@@ -22,8 +24,12 @@ export function activate(context: vscode.ExtensionContext): void {
   // Scans the workspace and builds graphs; its cache is shared by the panel and the debug commands.
   const graphService = new GraphService(registry, parser);
 
+  // Notices file changes from any tool; the panel and the status bar both listen to it.
+  const watcher = new ChangeWatcher();
+  context.subscriptions.push(watcher, new ReviewStatusBar(watcher));
+
   context.subscriptions.push(
-    vscode.commands.registerCommand('vibeReview.open', () => ReviewPanel.show(context, graphService)),
+    vscode.commands.registerCommand('vibeReview.open', () => ReviewPanel.show(context, graphService, watcher)),
 
     // Temporary step 3 command: prints git's view of the changes so we can verify them.
     vscode.commands.registerCommand('vibeReview.logChanges', async () => {

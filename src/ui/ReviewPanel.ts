@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 import type { ChangeSet, GraphScope } from '../core/types';
+import type { ChangeWatcher } from '../workspace/ChangeWatcher';
 import type { GraphService } from '../workspace/GraphService';
 import type { CodeHighlight, CodeSite, HostMessage, WebviewMessage } from './messages';
 
@@ -76,7 +77,7 @@ export class ReviewPanel {
   private static current: ReviewPanel | undefined;
 
   /** Open the panel, or bring the existing one to the front. */
-  static show(context: vscode.ExtensionContext, graphService: GraphService): void {
+  static show(context: vscode.ExtensionContext, graphService: GraphService, watcher: ChangeWatcher): void {
     if (ReviewPanel.current) {
       ReviewPanel.current.panel.reveal();
       return;
@@ -91,7 +92,7 @@ export class ReviewPanel {
       // The page may only load files from dist/webview.
       localResourceRoots: [webviewRoot],
     });
-    ReviewPanel.current = new ReviewPanel(panel, webviewRoot, graphService);
+    ReviewPanel.current = new ReviewPanel(panel, webviewRoot, graphService, watcher);
   }
 
   // Incremented for every load, so a slow older result cannot overwrite a newer one.
@@ -110,6 +111,7 @@ export class ReviewPanel {
     private readonly panel: vscode.WebviewPanel,
     webviewRoot: vscode.Uri,
     private readonly graphService: GraphService,
+    watcher: ChangeWatcher,
   ) {
     panel.webview.html = this.html(webviewRoot);
 
@@ -124,6 +126,13 @@ export class ReviewPanel {
         }
         // "ready" and "setScope" both mean: show me a graph.
         void this.load();
+      }),
+      // Files changed on disk (an agent writing, a checkout...): show the new state without being asked.
+      watcher.onDidChange(() => this.refresh()),
+      panel.onDidChangeViewState(() => {
+        if (panel.visible && this.stale) {
+          this.refresh();
+        }
       }),
       vscode.languages.registerHoverProvider({ scheme: 'file' }, { provideHover: (doc, pos) => this.hoverAt(doc, pos) }),
       // The links in the hover run this: ask the graph to open that symbol, which sends back its route.
@@ -319,7 +328,20 @@ export class ReviewPanel {
     this.applyMarks();
   }
 
-  private async load(): Promise<void> {
+  // True when files changed while the tab was in the background; it refreshes when shown again.
+  private stale = false;
+
+  /** Rebuild the graph after a file change. Silent: the current graph stays on screen until the new one arrives. */
+  private refresh(): void {
+    if (!this.panel.visible) {
+      this.stale = true;
+      return;
+    }
+    void this.load(true);
+  }
+
+  private async load(silent = false): Promise<void> {
+    this.stale = false;
     const loadId = ++this.loadCounter;
     const folder = vscode.workspace.workspaceFolders?.[0];
     if (!folder) {
@@ -327,10 +349,12 @@ export class ReviewPanel {
       return;
     }
 
-    this.post({ type: 'loading', message: 'Analyzing workspace...' });
+    if (!silent) {
+      this.post({ type: 'loading', message: 'Analyzing workspace...' });
+    }
     try {
       const { graph, changes } = await this.graphService.build(folder.uri.fsPath, this.scope, (done, total) => {
-        if (loadId === this.loadCounter) {
+        if (loadId === this.loadCounter && !silent) {
           this.post({ type: 'loading', message: `Analyzing workspace... ${done}/${total} files` });
         }
       });

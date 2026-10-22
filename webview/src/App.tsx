@@ -124,7 +124,7 @@ function Body({ state, fullView, setFullView }: { state: State; fullView: boolea
   }
   return (
     <ReactFlowProvider>
-      <Graph key={state.version} graph={state.graph} fullView={fullView} setFullView={setFullView} />
+      <Graph key={state.graph.scope} graph={state.graph} fullView={fullView} setFullView={setFullView} />
     </ReactFlowProvider>
   );
 }
