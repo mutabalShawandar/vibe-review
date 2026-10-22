@@ -12,7 +12,7 @@ What this means for the design:
 - **Ideas for after v1, not committed to:** highlight the files the agent is touching right now; show only "changes since the last prompt" (a checkpoint baseline instead of HEAD); an integration with Claude Code (hooks or its IDE connection) to learn which files were edited; sending a review comment on a symbol back to the agent as a prompt.
 
 ## Working rule
-You stay in the picture: every step below is small, runnable, and approved by you before the next one starts.
+Every step below is small, runnable, and reviewed before the next one starts.
 
 ## Decisions (confirmed)
 - Changes = git working tree vs HEAD (+ untracked), refreshed on file save/change.
@@ -74,9 +74,9 @@ Project is open source, so contributor conventions exist from day one:
      - 7c-3. Usage inside files: for each top-level symbol, which imported names it references. The strategy reports raw references; core matches them against the bindings, so the matching logic is language-independent.
      - 7c-4. GraphBuilder produces symbol-to-symbol links (`GraphEdge.uses: { fromSymbol, toSymbol }[]`) and applies relevance: changed files list all their symbols (changed ones flagged), connected files list only the symbols used by or from the change.
    - 7d. **Class-diagram cards** (webview): header with file name and folder, compartments by kind (classes with methods and properties, components, hooks, functions, types), changed symbols highlighted, a connection point per symbol so arrows run from the exact symbol that uses something to the exact symbol it uses. Card height computed for elkjs.
-   - 7e. **Where to start**: review-order sidebar (one-line reason per file), number badges and a "start here" mark on the graph, "reviewed" checkmarks, click a file or symbol to open it at that line. Connected (dependent/dependency) files drawn dimmer.
-   - 7f. Interaction: hover highlights a chain of arrows and dims the rest, filters by status, minimap, collapsible folder groups in the full-system view, scope toggle polish.
-8. **Live refresh**: file watcher + debounce + analysis cache (by mtime).
+   - 7e. **Where to start**: review-order sidebar (one-line reason per file), number badges and a "start here" mark on the graph, "reviewed" checkmarks, click a file or symbol to open it at that line. Connected (dependent/dependency) files drawn dimmer. *Done, except the "reviewed" checkmarks.*
+   - 7f. Interaction: hover highlights a chain of arrows and dims the rest, filters by status, minimap, collapsible folder groups in the full-system view, scope toggle polish. *Hover highlights the whole route and click opens the code; filters, minimap and folder groups are still open.*
+8. **Live refresh**: file watcher + debounce + analysis cache (by mtime). *Done, with follow mode, an editing indicator and placeholders for new files.*
 9. **Python strategy** (imports, relative imports, classes/functions, FastAPI router hints). Proves the pattern with a second stack.
 10. **Polish/docs**: "how to add a language" guide, README, packaging with vsce.
 
