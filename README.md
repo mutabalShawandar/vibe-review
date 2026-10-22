@@ -49,7 +49,7 @@ There is no Marketplace release yet, so for now you run the extension from sourc
 ### Prerequisites
 
 - **VS Code 1.90 or newer**, with the `code` command available in your terminal. (In VS Code: Command Palette → *Shell Command: Install 'code' command in PATH*. On Windows the installer already adds it.)
-- **Node.js** (20 or newer is what it is developed with) and npm.
+- **Node.js 22 or newer** and npm.
 - **git** on your PATH.
 - **A project to review**: a git repository with some uncommitted changes. Today the diagram understands TypeScript and JavaScript files (`.ts`, `.tsx`, `.js`, `.jsx`, and the `m`/`c` variants), so a Next.js or Node project is ideal.
 
@@ -128,4 +128,8 @@ npm test
 
 ## License
 
-[MIT](LICENSE)
+Vibe Review is open source under the [MIT License](LICENSE). Use it, change it and share it, personally or commercially.
+
+## Support the project
+
+Vibe Review is free, and built and maintained in spare time. If it saves you review time, please consider supporting it through [GitHub Sponsors](https://github.com/sponsors/mutabalShawandar). Thank you!

@@ -53,7 +53,7 @@ Project is open source, so contributor conventions exist from day one:
 - `.github/PULL_REQUEST_TEMPLATE.md`: summary, linked issue, type of change, how it was tested, screenshots of the diagram if UI changed, checklist (tests, docs, no language-specific code in `core/`).
 - `.github/ISSUE_TEMPLATE/`: `bug_report.md`, `feature_request.md`, `new_language_support.md`.
 - Commit convention: Conventional Commits (`feat(python): ...`, `fix(core): ...`), documented in CONTRIBUTING.md; enforced by commitlint + husky (added in step 0b, optional to turn on).
-- `CODE_OF_CONDUCT.md` (Contributor Covenant), `LICENSE` (MIT, confirmed), `.editorconfig`, `.gitignore`, `CHANGELOG.md`.
+- `CODE_OF_CONDUCT.md` (Contributor Covenant), `LICENSE` (MIT), `.editorconfig`, `.gitignore`, `CHANGELOG.md`.
 - CI (`.github/workflows/ci.yml`): lint, typecheck, test on PRs.
 
 ## Incremental steps

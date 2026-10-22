@@ -6,7 +6,7 @@ Please read the [Code of Conduct](CODE_OF_CONDUCT.md) first. For bugs and ideas,
 
 ## Setup
 
-You need VS Code 1.90 or newer, Node.js (20 or newer is what the project is developed with), git, and the `code` command on your PATH (in VS Code: *Command Palette → Shell Command: Install 'code' command in PATH*; on Windows the installer adds it).
+You need VS Code 1.90 or newer, Node.js 22 or newer, git, and the `code` command on your PATH (in VS Code: *Command Palette → Shell Command: Install 'code' command in PATH*; on Windows the installer adds it).
 
 ```bash
 git clone https://github.com/mutabalShawandar/vibe-review.git
@@ -37,6 +37,8 @@ Alternatively press **F5** in this repository (the "Run Extension" launch config
 | `npm run watch` | Rebuild on change |
 | `npm test` | Run all tests |
 | `npm run typecheck` | Type-check the extension and the webview |
+
+The three debug commands (*Log Changes*, *Analyze Active File*, *Build Graph*) are hidden from the Command Palette. To see them while developing, turn on the setting `vibeReview.debugCommands` in the development window.
 
 ## How the code is organized
 
@@ -98,6 +100,10 @@ Example: `feat(python): resolve relative imports`
 - Fill in the pull request template, link the issue, and include screenshots (or a short recording) for any change to the diagram or the editor marks.
 - `npm test` and `npm run typecheck` must pass; CI runs both.
 - Update the docs (README, this file) and add a line to [`CHANGELOG.md`](CHANGELOG.md) when behavior changes.
+
+## License
+
+The project is under the [MIT License](LICENSE). By submitting a contribution you agree that it is licensed under the same terms.
 
 ## Conduct
 
