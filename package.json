@@ -3,7 +3,7 @@
   "displayName": "Vibe Review",
   "description": "Live dependency diagram of your git changes, so you know where to start reviewing AI-generated code.",
   "version": "0.0.1",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/mutabalShawandar/vibe-review#readme",
   "bugs": {
     "url": "https://github.com/mutabalShawandar/vibe-review/issues"

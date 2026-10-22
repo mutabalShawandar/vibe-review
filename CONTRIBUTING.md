@@ -103,7 +103,7 @@ Example: `feat(python): resolve relative imports`
 
 ## License
 
-The project is under the [MIT License](LICENSE). By submitting a contribution you agree that it is licensed under the same terms.
+The project is under the [Apache License 2.0](LICENSE). As Section 5 of that license says, a contribution you submit is licensed under the same terms (including the patent grant), unless you state otherwise. Please only submit work you have the right to contribute.
 
 ## Conduct
 

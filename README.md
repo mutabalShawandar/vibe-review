@@ -128,8 +128,5 @@ npm test
 
 ## License
 
-Vibe Review is open source under the [MIT License](LICENSE). Use it, change it and share it, personally or commercially.
+Vibe Review is open source under the [Apache License 2.0](LICENSE). Use it, change it and share it, personally or commercially. The license includes an explicit patent grant; see [NOTICE](NOTICE) for the copyright notice.
 
-## Support the project
-
-Vibe Review is free, and built and maintained in spare time. If it saves you review time, please consider supporting it through [GitHub Sponsors](https://github.com/sponsors/mutabalShawandar). Thank you!
