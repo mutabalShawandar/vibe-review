@@ -565,3 +565,21 @@ body {
   gap: 6px;
   color: var(--vr-changed);
 }
+
+/* --- cards stand out from the canvas --- */
+:root {
+  /* A step lighter than the editor background, whatever the theme, plus a visible edge and a shadow. */
+  --vr-card-bg: color-mix(in srgb, var(--vscode-editor-foreground, #cccccc) 9%, var(--vscode-editor-background));
+  --vr-card-border: color-mix(in srgb, var(--vscode-editor-foreground, #cccccc) 32%, var(--vscode-editor-background));
+}
+.file-card,
+.placeholder-card {
+  border-color: var(--vr-card-border);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.45);
+}
+.file-card__header {
+  background: color-mix(in srgb, var(--vscode-editor-foreground, #cccccc) 6%, transparent);
+}
+.react-flow__background {
+  opacity: 0.5; /* a calmer canvas, so the cards read as the foreground */
+}

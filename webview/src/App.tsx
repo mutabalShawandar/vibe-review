@@ -34,6 +34,8 @@ export function App() {
   // Follow the live edits. Moving the view by hand pauses it until the reader resumes.
   const [follow, setFollow] = useState<FollowMode>('latest');
   const [paused, setPaused] = useState(false);
+  // Bumped by "Resume follow"; the graph goes to the file being edited, or else the one edited last.
+  const [resumes, setResumes] = useState(0);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<HostMessage>) => {
@@ -91,7 +93,14 @@ export function App() {
           </select>
         </label>
         {paused && follow !== 'off' && (
-          <button className="toggle-button" onClick={() => setPaused(false)} title="You moved the view; follow the edits again">
+          <button
+            className="toggle-button"
+            onClick={() => {
+              setPaused(false);
+              setResumes((count) => count + 1);
+            }}
+            title="You moved the view; go to the file being edited (or the one edited last) and follow again"
+          >
             Resume follow
           </button>
         )}
@@ -99,7 +108,7 @@ export function App() {
         <Legend />
       </header>
       <main className="canvas">
-        <Body state={state} fullView={fullView} setFullView={setFullView} follow={follow} paused={paused} setPaused={setPaused} />
+        <Body state={state} fullView={fullView} setFullView={setFullView} follow={follow} paused={paused} setPaused={setPaused} resumes={resumes} />
       </main>
     </div>
   );
@@ -184,6 +193,7 @@ function Body({
   follow,
   paused,
   setPaused,
+  resumes,
 }: {
   state: State;
   fullView: boolean;
@@ -191,6 +201,7 @@ function Body({
   follow: FollowMode;
   paused: boolean;
   setPaused(value: boolean): void;
+  resumes: number;
 }) {
   if (state.kind === 'loading') {
     return <p className="message">{state.message}</p>;
@@ -212,6 +223,7 @@ function Body({
         follow={follow}
         paused={paused}
         setPaused={setPaused}
+        resumes={resumes}
       />
     </ReactFlowProvider>
   );
@@ -225,6 +237,7 @@ function Graph({
   follow,
   paused,
   setPaused,
+  resumes,
 }: {
   graph: GraphModel;
   touched: string[];
@@ -233,8 +246,10 @@ function Graph({
   follow: FollowMode;
   paused: boolean;
   setPaused(value: boolean): void;
+  resumes: number;
 }) {
-  const { fitView } = useReactFlow();
+  const { fitView, fitBounds, setCenter } = useReactFlow();
+  const flowRef = useRef<HTMLDivElement>(null); // the canvas, to know how much room the camera has
   const [elements, setElements] = useState<{ nodes: FileCardNode[]; edges: Edge[] } | undefined>();
   // Cards the user opened to see every symbol. Each change needs a new layout: cards change height.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -314,6 +329,7 @@ function Graph({
     }
     setFresh(found);
     pendingFollow.current = found.files;
+    lastEdited.current = found.files[0] ?? lastEdited.current; // newest first
     const timer = setTimeout(() => setFresh(undefined), 8000); // the pulse fades; the marks go with it
     return () => clearTimeout(timer);
   }, [graph]); // eslint-disable-line react-hooks/exhaustive-deps -- `touched` always arrives together with `graph`
@@ -424,14 +440,30 @@ function Graph({
     return { nodes, edges };
   }, [base, hover]);
 
+  // Fit the whole graph once, when its first layout is on screen. (React Flow's own fit-on-load
+  // measured only one card here and zoomed far into it.)
+  const fitted = useRef(false);
+  useEffect(() => {
+    if (!elements || fitted.current) {
+      return;
+    }
+    fitted.current = true;
+    const timer = setTimeout(() => void fitView({ padding: 0.15, duration: 0 }), 100);
+    return () => clearTimeout(timer);
+  }, [elements, fitView]);
+
   // --- Follow the edits ---
   // The view keeps moving to the file being written: every write report pans to it (unless the
   // reader moved the view), so with an agent hopping between files the view hops along.
+  // What is on screen right now, for the camera to aim at (the camera callbacks outlive renders).
+  const shownNodes = useRef({ elements, placeholders });
+  shownNodes.current = { elements, placeholders };
   const followRef = useRef({ follow, paused });
   followRef.current = { follow, paused };
   const lastFollowMove = useRef(0);
   const trailingMove = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const editingNow = useRef<string[]>([]); // files being written, oldest first
+  const lastEdited = useRef<string | undefined>(undefined); // the file written most recently
 
   const moveTo = useCallback(
     (files: string[], force = false) => {
@@ -447,12 +479,33 @@ function Graph({
         trailingMove.current = setTimeout(() => moveTo(files, true), wait);
         return;
       }
-      lastFollowMove.current = Date.now();
+      // The rectangle to show, from our own layout: cards and placeholders as they are on screen now.
       const target = mode === 'latest' ? files.slice(-1) : files;
-      // One file: zoom in on it. Several: fit them all.
-      void fitView({ nodes: target.map((id) => ({ id })), duration: 700, maxZoom: target.length === 1 ? 1.1 : 1, padding: 0.35 });
+      const rects = [...(shownNodes.current.elements?.nodes ?? []), ...shownNodes.current.placeholders]
+        .filter((node) => target.includes(node.id))
+        .map((node) => ({ x: node.position.x, y: node.position.y, width: node.width ?? 300, height: node.height ?? 120 }));
+      if (rects.length === 0) {
+        return;
+      }
+      const left = Math.min(...rects.map((rect) => rect.x));
+      const top = Math.min(...rects.map((rect) => rect.y));
+      const right = Math.max(...rects.map((rect) => rect.x + rect.width));
+      const bottom = Math.max(...rects.map((rect) => rect.y + rect.height));
+
+      lastFollowMove.current = Date.now();
+      const width = right - left;
+      const height = bottom - top;
+      if (rects.length === 1) {
+        // One file: zoom in on it, as far as is comfortable (never past 1.1) and with room around it.
+        const room = flowRef.current ?? { clientWidth: 1000, clientHeight: 700 };
+        const zoom = Math.min(1.1, room.clientWidth / (width * 1.7), room.clientHeight / (height * 1.5));
+        void setCenter(left + width / 2, top + height / 2, { zoom, duration: 700 });
+      } else {
+        // Several files: fit them all.
+        void fitBounds({ x: left, y: top, width, height }, { duration: 700, padding: 0.2 });
+      }
     },
-    [fitView],
+    [fitBounds, setCenter],
   );
   useEffect(() => () => clearTimeout(trailingMove.current), []);
 
@@ -489,6 +542,7 @@ function Graph({
           }, 2500), // "being edited" ends when no write has come for this long
         );
         editingNow.current = [...editingNow.current.filter((name) => name !== file), file];
+        lastEdited.current = file;
       }
       const go = () => moveTo(follow === 'all' ? editingNow.current : files);
       // A placeholder card has to be on screen before the view can move to it.
@@ -497,6 +551,15 @@ function Graph({
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [graph, follow, moveTo]);
+
+  // "Resume follow": go where the agent is. Files being written right now, or else the last one written.
+  useEffect(() => {
+    if (resumes === 0) {
+      return;
+    }
+    const files = editingNow.current.length > 0 ? editingNow.current : lastEdited.current ? [lastEdited.current] : [];
+    moveTo(files, true);
+  }, [resumes]); // eslint-disable-line react-hooks/exhaustive-deps -- only a click on the button resumes
 
   // A refresh re-lays the graph out, which can move the cards: go to the edited ones again.
   useEffect(() => {
@@ -542,12 +605,11 @@ function Graph({
         onHover={focus}
         onLeave={blur}
       />
-      <div className="flow">
+      <div className="flow" ref={flowRef}>
         <ReactFlow
           nodes={[...view!.nodes, ...placeholders]}
           edges={view!.edges}
           nodeTypes={nodeTypes}
-          fitView
           onMoveStart={userMoved}
           minZoom={0.1}
           colorMode={dark ? 'dark' : 'light'}
