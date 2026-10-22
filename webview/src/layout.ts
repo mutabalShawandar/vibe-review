@@ -1,7 +1,9 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js';
 import type { GraphModel, GraphNode } from '../../src/core/types';
-import { buildCard, CARD_WIDTH, cardHeight, visiblePort, type Card } from './card';
+import { buildCard, CARD_WIDTH, cardHeight, FILE_PORT, portKey, visiblePort, type Card } from './card';
+import { computeFeatures } from './review';
+import type { UsageSite } from './route';
 
 /** What a file card needs to draw itself. */
 export interface CardData extends Record<string, unknown> {
@@ -10,6 +12,10 @@ export interface CardData extends Record<string, unknown> {
   expanded: boolean;
   /** While hovering: how each row (by key) relates to the hovered symbol. Absent when nothing is hovered. */
   marks?: Record<string, RowMark>;
+  /** While hovering: row keys that are on the route and must be listed even if the card hides them. */
+  reveal?: ReadonlySet<string>;
+  /** Set on changed files: the place in the feature's reading order (1 = start here) and the feature's color. */
+  review?: { order: number; color: string };
 }
 
 /** `self` is the hovered symbol, `uses` is something it relies on (directly or not), `usedBy` something that relies on it. */
@@ -40,6 +46,13 @@ export function toFlowElements(
   expanded: ReadonlySet<string> = new Set(),
 ): { nodes: FileCardNode[]; edges: Edge[] } {
   const cards = new Map<string, Card>();
+  // Every feature has its own reading order and its own color, shared by the badges of its files.
+  const review = new Map<string, { order: number; color: string }>();
+  for (const feature of computeFeatures(graph)) {
+    for (const item of feature.items) {
+      review.set(item.id, { order: item.order, color: edgeColor(feature.id) });
+    }
+  }
   const nodes: FileCardNode[] = graph.nodes.map((node) => {
     const card = buildCard(node, expanded.has(node.id));
     cards.set(node.id, card);
@@ -47,7 +60,7 @@ export function toFlowElements(
       id: node.id,
       type: 'fileCard',
       position: { x: 0, y: 0 },
-      data: { node, card, expanded: expanded.has(node.id) },
+      data: { node, card, expanded: expanded.has(node.id), review: review.get(node.id) },
       className: `status-${node.status}`,
       width: CARD_WIDTH,
       height: cardHeight(card),
@@ -65,10 +78,19 @@ export function toFlowElements(
       // `s:` handles are where an arrow leaves a card, `t:` handles where it arrives.
       const sourceHandle = `s:${visiblePort(fromCard, use.from)}`;
       const targetHandle = `t:${visiblePort(toCard, use.to)}`;
-      // Several links can collapse onto the same two connection points; draw that arrow once.
-      const id = `${edge.from}|${sourceHandle}->${edge.to}|${targetHandle}`;
-      // The lines (in the importing file) that mention the imported name; merged when links collapse.
-      const lines = [...new Set([...((edges.get(id)?.data?.lines as number[] | undefined) ?? []), ...(use.lines ?? [])])].sort((a, b) => a - b);
+      // The symbols the arrow is really between. A card that hides a row draws the arrow at the
+      // row's class or the header, but hovering reveals the row and the arrow moves to it.
+      const fromKey = use.from ? portKey(use.from.symbol, use.from.member) : FILE_PORT;
+      const toKey = use.to ? portKey(use.to.symbol, use.to.member) : FILE_PORT;
+      const id = `${edge.from}|${fromKey}->${edge.to}|${toKey}`;
+      // Where the importing file writes the imported name (line and word); merged when links collapse.
+      const sites = [...((edges.get(id)?.data?.sites as UsageSite[] | undefined) ?? [])];
+      for (const line of use.lines ?? []) {
+        if (!sites.some((site) => site.line === line && site.name === (use.name ?? ''))) {
+          sites.push({ line, name: use.name ?? '' });
+        }
+      }
+      sites.sort((a, b) => a.line - b.line);
       edges.set(id, {
         id,
         source: edge.from, // the file that imports...
@@ -76,7 +98,7 @@ export function toFlowElements(
         sourceHandle,
         targetHandle,
         type: 'smoothstep',
-        data: { lines },
+        data: { sites, fromKey, toKey },
         // All arrows leaving one file share a color, so a file's dependencies read as one group.
         style: { stroke: edgeColor(edge.from) },
         markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor(edge.from) },

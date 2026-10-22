@@ -292,3 +292,148 @@ body {
   background: color-mix(in srgb, #e08a1e 25%, transparent);
   box-shadow: inset 3px 0 0 #e08a1e;
 }
+
+/* --- "where to start" sidebar --- */
+.canvas {
+  display: flex;
+}
+.flow {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.sidebar {
+  flex: 0 0 280px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 8px 10px 16px;
+  border-right: 1px solid var(--vscode-panel-border);
+}
+.sidebar__title {
+  margin: 4px 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.sidebar__empty {
+  opacity: 0.7;
+}
+.feature {
+  margin-bottom: 14px;
+  padding-left: 8px;
+  border-left: 3px solid var(--feature);
+}
+.feature__title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.feature__count {
+  font-weight: 400;
+  opacity: 0.6;
+}
+.feature__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.review-item {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.review-item:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.review-item__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.review-item__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.review-item__folder,
+.review-item__reason {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.order-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.chip-start {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.toggle-button {
+  padding: 4px 12px;
+  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+}
+.toggle-button[aria-pressed='true'] {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+/* One set of colors for the graph rows and the code in the editor (see ReviewPanel.ts). */
+:root {
+  --vr-self: #9b59ff;
+  --vr-uses: #3794ff;
+  --vr-usedby: #e08a1e;
+}
+.file-card__row.mark-self {
+  background: color-mix(in srgb, var(--vr-self) 30%, transparent);
+}
+.file-card__row.mark-uses {
+  background: color-mix(in srgb, var(--vr-uses) 25%, transparent);
+  box-shadow: inset 3px 0 0 var(--vr-uses);
+}
+.file-card__row.mark-usedBy {
+  background: color-mix(in srgb, var(--vr-usedby) 25%, transparent);
+  box-shadow: inset 3px 0 0 var(--vr-usedby);
+}
+.legend {
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+  font-size: 12px;
+}
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}

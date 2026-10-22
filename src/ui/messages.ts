@@ -7,7 +7,9 @@ import type { GraphModel, GraphScope } from '../core/types';
 export type HostMessage =
   | { type: 'loading'; message: string }
   | { type: 'graph'; graph: GraphModel }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  // Walk the route: show this symbol (or file) in the editor, as if it had been clicked in the graph.
+  | { type: 'navigate'; file: string; key?: string; line?: number };
 
 /** Webview -> extension. */
 export type WebviewMessage =
@@ -20,6 +22,8 @@ export type WebviewMessage =
       file: string;
       line: number;
       endLine?: number;
+      /** Where to put the cursor, when not at the start of the symbol (e.g. the line that uses a name). */
+      focusLine?: number;
       origin: string;
       highlights: CodeHighlight[];
       sites: CodeSite[];
@@ -29,6 +33,8 @@ export type WebviewMessage =
 export interface CodeSite {
   file: string;
   line: number;
+  /** The word written there (the imported name), marked on its own inside the line. Empty when unknown. */
+  name: string;
   /** `uses`: the opened symbol (or something it relies on) writes the name here. `usedBy`: something that relies on the opened symbol does. */
   role: 'uses' | 'usedBy';
 }
@@ -36,6 +42,8 @@ export interface CodeSite {
 /** A symbol elsewhere in the code that is connected to the opened one. */
 export interface CodeHighlight {
   file: string;
+  /** The row key of the symbol (`UserService.find`), to navigate to it. */
+  key: string;
   startLine: number;
   endLine: number;
   /** `uses`: the opened symbol uses it. `usedBy`: it uses the opened symbol. */

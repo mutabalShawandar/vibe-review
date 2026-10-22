@@ -23,7 +23,7 @@ const graph: GraphModel = {
     {
       from: 'page.tsx',
       to: 'users.ts',
-      uses: [{ from: { symbol: 'UsersPage' }, to: { symbol: 'getUsers' }, lines: [5, 7] }],
+      uses: [{ from: { symbol: 'UsersPage' }, to: { symbol: 'getUsers' }, lines: [5, 7], name: 'getUsers' }],
     },
   ],
   reviewOrder: ['users.ts'],
@@ -34,19 +34,19 @@ describe('editorMarks', () => {
 
   it('marks the symbols that use the clicked one, and the lines where they use it', () => {
     const marks = editorMarks(graph.nodes, edges, { id: 'users.ts', key: 'getUsers' });
-    expect(marks.highlights).toEqual([{ file: 'page.tsx', startLine: 3, endLine: 10, role: 'usedBy', direct: true }]);
+    expect(marks.highlights).toEqual([{ file: 'page.tsx', key: 'UsersPage', startLine: 3, endLine: 10, role: 'usedBy', direct: true }]);
     expect(marks.sites).toEqual([
-      { file: 'page.tsx', line: 5, role: 'usedBy' },
-      { file: 'page.tsx', line: 7, role: 'usedBy' },
+      { file: 'page.tsx', line: 5, name: 'getUsers', role: 'usedBy' },
+      { file: 'page.tsx', line: 7, name: 'getUsers', role: 'usedBy' },
     ]);
   });
 
   it('marks what the clicked symbol uses, and the lines in the clicked symbol that use it', () => {
     const marks = editorMarks(graph.nodes, edges, { id: 'page.tsx', key: 'UsersPage' });
-    expect(marks.highlights).toEqual([{ file: 'users.ts', startLine: 1, endLine: 5, role: 'uses', direct: true }]);
+    expect(marks.highlights).toEqual([{ file: 'users.ts', key: 'getUsers', startLine: 1, endLine: 5, role: 'uses', direct: true }]);
     expect(marks.sites).toEqual([
-      { file: 'page.tsx', line: 5, role: 'uses' },
-      { file: 'page.tsx', line: 7, role: 'uses' },
+      { file: 'page.tsx', line: 5, name: 'getUsers', role: 'uses' },
+      { file: 'page.tsx', line: 7, name: 'getUsers', role: 'uses' },
     ]);
   });
 

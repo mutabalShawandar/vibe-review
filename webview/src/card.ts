@@ -9,6 +9,8 @@ export const HEADER_HEIGHT = 52;
 export const ROW_HEIGHT = 24;
 export const FOOTER_HEIGHT = 26;
 export const CARD_PADDING = 6;
+/** A changed file listing more rows than this is collapsed to its changed symbols. */
+export const COLLAPSE_ABOVE = 8;
 
 export interface CardRow {
   /** Identifies the row and its connection points: `UserService` or `UserService.find`. */
@@ -34,17 +36,27 @@ export const portKey = (symbol: string, member?: string) => (member ? `${symbol}
 
 /**
  * The rows of a card. Normally only the relevant symbols are listed (see GraphSymbol.relevant);
- * an expanded card lists everything the file declares.
+ * an expanded card lists everything the file declares. `reveal` holds row keys to list in any case
+ * (while the pointer is over a route that passes through them).
  */
-export function buildCard(node: GraphNode, expanded: boolean): Card {
+export function buildCard(node: GraphNode, expanded: boolean, reveal?: ReadonlySet<string>): Card {
   const rows: CardRow[] = [];
   let total = 0;
 
-  const add = (symbol: GraphSymbol, depth: 0 | 1, parent?: string) => {
+  // A big changed file would make a huge card. Unless it is opened, such a card lists only what
+  // changed in it, so the reviewer sees the change and not the whole file.
+  const relevantCount = node.symbols.reduce(
+    (sum, symbol) => sum + (symbol.relevant ? 1 : 0) + (symbol.members ?? []).filter((member) => member.relevant).length,
+    0,
+  );
+  const changedOnly = !expanded && node.status === 'changed' && relevantCount > COLLAPSE_ABOVE;
+
+  const add = (symbol: GraphSymbol, depth: 0 | 1, parent?: string, force = false) => {
     total++;
-    if (expanded || symbol.relevant) {
+    const key = portKey(parent ?? symbol.name, parent ? symbol.name : undefined);
+    if (expanded || force || reveal?.has(key) || (changedOnly ? symbol.changed : symbol.relevant)) {
       rows.push({
-        key: portKey(parent ?? symbol.name, parent ? symbol.name : undefined),
+        key,
         label: symbol.name,
         kind: symbol.kind,
         changed: symbol.changed,
@@ -55,7 +67,9 @@ export function buildCard(node: GraphNode, expanded: boolean): Card {
   };
 
   for (const symbol of node.symbols) {
-    add(symbol, 0);
+    // A revealed member needs its class row above it.
+    const memberRevealed = (symbol.members ?? []).some((member) => reveal?.has(portKey(symbol.name, member.name)));
+    add(symbol, 0, undefined, memberRevealed);
     for (const member of symbol.members ?? []) {
       add(member, 1, symbol.name);
     }

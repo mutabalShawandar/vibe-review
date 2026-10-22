@@ -35,23 +35,38 @@ const selfMark = vscode.window.createTextEditorDecorationType({
   borderStyle: 'solid',
   borderColor: 'rgba(155, 89, 255, 0.95)',
 });
+// A line that writes a name from the route: a light tint and a bar on the left. The word itself is
+// marked more strongly (below), and a label after the line says what it means.
 const usesSiteMark = vscode.window.createTextEditorDecorationType({
   isWholeLine: true,
-  backgroundColor: 'rgba(55, 148, 255, 0.38)',
+  backgroundColor: 'rgba(55, 148, 255, 0.12)',
   borderWidth: '0 0 0 3px',
   borderStyle: 'solid',
   borderColor: 'rgba(55, 148, 255, 1)',
 });
 const usedBySiteMark = vscode.window.createTextEditorDecorationType({
   isWholeLine: true,
-  backgroundColor: 'rgba(224, 138, 30, 0.38)',
+  backgroundColor: 'rgba(224, 138, 30, 0.12)',
   borderWidth: '0 0 0 3px',
   borderStyle: 'solid',
   borderColor: 'rgba(224, 138, 30, 1)',
 });
+const usesWordMark = vscode.window.createTextEditorDecorationType({
+  backgroundColor: 'rgba(55, 148, 255, 0.45)',
+  borderRadius: '3px',
+  borderWidth: '0 0 2px 0',
+  borderStyle: 'solid',
+  borderColor: 'rgba(55, 148, 255, 1)',
+});
+const usedByWordMark = vscode.window.createTextEditorDecorationType({
+  backgroundColor: 'rgba(224, 138, 30, 0.45)',
+  borderRadius: '3px',
+  borderWidth: '0 0 2px 0',
+  borderStyle: 'solid',
+  borderColor: 'rgba(224, 138, 30, 1)',
+});
 
-/** At most this many connected files are opened in tabs after a click; the rest are marked only if already open. */
-const MAX_OPENED_NEIGHBORS = 4;
+const GO_TO_COMMAND = 'vibeReview.goTo';
 
 /**
  * The "Vibe Review" tab. It only hosts the webview (the React app in /webview) and feeds it
@@ -85,6 +100,8 @@ export class ReviewPanel {
   private readonly disposables: vscode.Disposable[] = [];
   // The git changes of the last graph, and the symbols currently marked in the code.
   private changes: ChangeSet = [];
+  // The editor column the clicked file opened in; walking the route reuses it.
+  private column: vscode.ViewColumn | undefined;
   private marks:
     | { origin: string; file: string; line: number; endLine: number; highlights: CodeHighlight[]; sites: CodeSite[] }
     | undefined;
@@ -108,10 +125,16 @@ export class ReviewPanel {
         // "ready" and "setScope" both mean: show me a graph.
         void this.load();
       }),
+      vscode.languages.registerHoverProvider({ scheme: 'file' }, { provideHover: (doc, pos) => this.hoverAt(doc, pos) }),
+      // The links in the hover run this: ask the graph to open that symbol, which sends back its route.
+      vscode.commands.registerCommand(GO_TO_COMMAND, (target: { file: string; key?: string; line?: number }) =>
+        this.post({ type: 'navigate', ...target }),
+      ),
       // A marked file can come into view later (a tab switch, a file the user opens): mark it too.
       vscode.window.onDidChangeVisibleTextEditors(() => this.applyMarks()),
       panel.onDidDispose(() => {
         this.clearMarks();
+        this.column = undefined;
         ReviewPanel.current = undefined;
         this.disposables.forEach((disposable) => disposable.dispose());
       }),
@@ -139,16 +162,17 @@ export class ReviewPanel {
     }
     const first = Math.max(0, message.line - 1);
     const last = Math.max(first, (message.endLine ?? message.line) - 1);
-    let base: vscode.ViewColumn;
+    const cursor = Math.max(0, (message.focusLine ?? message.line) - 1);
     try {
-      // The cursor goes to the start of the symbol instead of selecting it; the symbol is marked with
-      // a color (below), so the code stays readable and the selection is free for the reader.
+      // The cursor goes to the symbol (or the line that depends on it) instead of selecting it; the
+      // symbol is marked with a color (below), so the code stays readable.
       const editor = await vscode.window.showTextDocument(uri, {
-        viewColumn: vscode.ViewColumn.Beside, // keep the graph visible
-        selection: new vscode.Range(first, 0, first, 0),
+        // The first click opens beside the graph; walking the route keeps using that same column.
+        viewColumn: this.column ?? vscode.ViewColumn.Beside,
+        selection: new vscode.Range(cursor, 0, cursor, 0),
       });
+      this.column = editor.viewColumn;
       editor.revealRange(new vscode.Range(first, 0, last, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-      base = editor.viewColumn ?? vscode.ViewColumn.Beside;
     } catch {
       void vscode.window.showWarningMessage(`Could not open ${message.file} (deleted or not a text file?).`);
       return;
@@ -162,49 +186,55 @@ export class ReviewPanel {
       highlights: message.highlights,
       sites: message.sites,
     };
-
-    // What the symbol uses opens in the column after it, what uses the symbol in the one after that,
-    // both at once. Without focus, so the clicked symbol stays where the reader is looking.
-    const next = (offset: number) => Math.min(9, (typeof base === 'number' && base > 0 ? base : 2) + offset) as vscode.ViewColumn;
-    await Promise.all([
-      this.openNeighbors(message, 'uses', next(1)),
-      this.openNeighbors(message, 'usedBy', next(2)),
-    ]);
     this.applyMarks();
   }
 
-  /** Open the files one arrow away with the given role as tabs of one column, each scrolled to the connected symbol. */
-  private async openNeighbors(
-    message: Extract<WebviewMessage, { type: 'open' }>,
-    role: CodeHighlight['role'],
-    column: vscode.ViewColumn,
-  ): Promise<void> {
-    const wanted = new Map<string, CodeHighlight>();
-    for (const highlight of message.highlights) {
-      if (highlight.role === role && highlight.direct && highlight.file !== message.file && !wanted.has(highlight.file)) {
-        wanted.set(highlight.file, highlight);
-      }
+  /**
+   * The hover over marked code: what the symbol uses and what uses it, each a link that walks the
+   * route (opens that symbol and marks its own route), plus what the colors stand for.
+   */
+  private hoverAt(document: vscode.TextDocument, position: vscode.Position): vscode.Hover | undefined {
+    const marks = this.marks;
+    const file = vscode.workspace.asRelativePath(document.uri, false);
+    const line = position.line + 1;
+    const onSymbol = marks?.file === file && line >= marks.line && line <= marks.endLine;
+    const onSite = marks?.sites.some((site) => site.file === file && site.line === line);
+    if (!marks || !(onSymbol || onSite)) {
+      return undefined;
     }
-    for (const highlight of [...wanted.values()].slice(0, MAX_OPENED_NEIGHBORS)) {
-      const neighbor = this.resolve(highlight.file);
-      if (!neighbor) {
-        continue;
-      }
-      try {
-        // Where the name is written (the exact line) is more useful to land on than the top of the symbol.
-        const site = message.sites.find((s) => s.file === highlight.file && s.role === role);
-        const line = (site?.line ?? highlight.startLine) - 1;
-        const editor = await vscode.window.showTextDocument(neighbor, {
-          viewColumn: column,
-          preserveFocus: true,
-          preview: false,
-          selection: new vscode.Range(line, 0, line, 0),
+
+    // A link per connected symbol one arrow away; the cursor lands on the line that writes the name when known.
+    const links = (role: CodeHighlight['role']) =>
+      marks.highlights
+        .filter((highlight) => highlight.role === role && highlight.direct)
+        .slice(0, 12)
+        .map((highlight) => {
+          const site = marks.sites.find(
+            (candidate) =>
+              candidate.file === highlight.file &&
+              candidate.role === role &&
+              candidate.line >= highlight.startLine &&
+              candidate.line <= highlight.endLine,
+          );
+          const args = encodeURIComponent(
+            JSON.stringify([{ file: highlight.file, key: highlight.key, line: site?.line ?? highlight.startLine }]),
+          );
+          return `[\`${highlight.key}\`](command:${GO_TO_COMMAND}?${args} "${highlight.file}:${highlight.startLine}")`;
         });
-        editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.InCenter);
-      } catch (error) {
-        console.error(`Vibe Review: could not open ${highlight.file}`, error); // not worth interrupting the click for
-      }
-    }
+    const uses = links('uses');
+    const usedBy = links('usedBy');
+
+    const text = new vscode.MarkdownString(undefined, true);
+    text.isTrusted = { enabledCommands: [GO_TO_COMMAND] }; // lets the links above run our command, nothing else
+    const none = '_nothing in the change_';
+    text.appendMarkdown(`**Vibe Review** · \`${marks.origin}\`\n\n`);
+    text.appendMarkdown(`**Uses** 🟦 ${uses.length > 0 ? uses.join(' · ') : none}\n\n`);
+    text.appendMarkdown(`**Used by** 🟧 ${usedBy.length > 0 ? usedBy.join(' · ') : none}\n\n`);
+    text.appendMarkdown(
+      '---\n\n🟪 the symbol you opened · 🟦 what it uses · 🟧 what uses it · 🟩 changed lines  \n' +
+        'A stronger line is where the name is written; the lighter tint is the whole symbol.',
+    );
+    return new vscode.Hover(text);
   }
 
   /** Paint the marks on every editor that is visible right now (editors without marks are cleared). */
@@ -225,22 +255,62 @@ export class ReviewPanel {
             renderOptions: {
               after: {
                 contentText: `  ${role === 'uses' ? 'used by' : 'uses'} ${this.marks?.origin}`,
-                color: new vscode.ThemeColor('editorCodeLens.foreground'),
+                color: role === 'uses' ? '#3794ff' : '#e08a1e', // same colors as the tints
                 fontStyle: 'italic',
               },
             },
           }));
 
       const own = this.marks && this.marks.file === file ? [lines(this.marks.line, this.marks.endLine)] : [];
-      const site = (role: CodeSite['role']) =>
-        (this.marks?.sites ?? []).filter((s) => s.file === file && s.role === role).map((s) => lines(s.line, s.line));
+
+      // The marked lines of this file for one role, with a label after each, and the exact word on it.
+      const sitesOf = (role: CodeSite['role']) => {
+        const lineMarks: vscode.DecorationOptions[] = [];
+        const words: vscode.Range[] = [];
+        const origin = this.marks?.origin ?? '';
+        const labeled = new Set<number>();
+        for (const site of this.marks?.sites ?? []) {
+          if (site.file !== file || site.role !== role || site.line > editor.document.lineCount) {
+            continue;
+          }
+          const text = editor.document.lineAt(site.line - 1).text;
+          if (site.name) {
+            // The word, not as a property (`a.getUsers`) and not as part of a longer name.
+            const escaped = site.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const word = new RegExp('(?<![\\w$.])' + escaped + '(?![\\w$])', 'g');
+            for (const match of text.matchAll(word)) {
+              words.push(new vscode.Range(site.line - 1, match.index, site.line - 1, match.index + site.name.length));
+            }
+          }
+          if (labeled.has(site.line)) {
+            continue; // two names on one line: one label is enough
+          }
+          labeled.add(site.line);
+          lineMarks.push({
+            range: lines(site.line, site.line),
+            renderOptions: {
+              after: {
+                // Blue: this code relies on `name`. Orange: this code relies on the symbol you opened.
+                contentText: role === 'uses' ? `  → uses ${site.name || 'an import'}` : `  ← uses ${origin}`,
+                color: role === 'uses' ? '#3794ff' : '#e08a1e',
+                fontStyle: 'italic',
+              },
+            },
+          });
+        }
+        return { lineMarks, words };
+      };
+      const usesSites = sitesOf('uses');
+      const usedBySites = sitesOf('usedBy');
 
       editor.setDecorations(changedMark, changed);
       editor.setDecorations(usesMark, mark('uses'));
       editor.setDecorations(usedByMark, mark('usedBy'));
       editor.setDecorations(selfMark, own);
-      editor.setDecorations(usesSiteMark, site('uses'));
-      editor.setDecorations(usedBySiteMark, site('usedBy'));
+      editor.setDecorations(usesSiteMark, usesSites.lineMarks);
+      editor.setDecorations(usedBySiteMark, usedBySites.lineMarks);
+      editor.setDecorations(usesWordMark, usesSites.words);
+      editor.setDecorations(usedByWordMark, usedBySites.words);
     }
   }
 

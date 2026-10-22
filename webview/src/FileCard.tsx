@@ -1,7 +1,7 @@
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { NodeStatus, SymbolKind } from '../../src/core/types';
-import { CARD_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, ROW_HEIGHT, splitPath } from './card';
+import { buildCard, CARD_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, ROW_HEIGHT, splitPath } from './card';
 import type { FileCardNode } from './layout';
 
 /** Lets a card ask the app to expand or collapse it, without passing callbacks through React Flow's node data. */
@@ -41,7 +41,9 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
  * symbol uses something, and arrive on the right, where something else uses the symbol.
  */
 export function FileCard({ id, data }: NodeProps<FileCardNode>) {
-  const { node, card, expanded, marks } = data;
+  const { node, expanded, marks, review, reveal } = data;
+  // Hovering a route lists the rows on it that the card normally hides (the card grows downward over its neighbors).
+  const card = useMemo(() => (reveal ? buildCard(node, expanded, reveal) : data.card), [node, expanded, reveal, data.card]);
   const { toggle, focus, blur, open } = useContext(CardActions);
   const updateNodeInternals = useUpdateNodeInternals();
 
@@ -63,8 +65,14 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
         <Handle id="s:file" type="source" position={Position.Left} />
         <Handle id="t:file" type="target" position={Position.Right} />
         <div className="file-card__title">
+          {review && (
+            <span className="order-badge" style={{ background: review.color }} title={`Step ${review.order} of its feature`}>
+              {review.order}
+            </span>
+          )}
           <span className="file-card__name">{name}</span>
           {STATUS_LABEL[node.status] && <span className={`chip chip-${node.status}`}>{STATUS_LABEL[node.status]}</span>}
+          {review?.order === 1 && <span className="chip chip-start">start here</span>}
           {node.entryPoint && <span className="chip chip-entry">{node.entryPoint}</span>}
         </div>
         {folder && <div className="file-card__folder">{folder}</div>}

@@ -7,11 +7,24 @@ import type { CodeHighlight, CodeSite } from '../../src/ui/messages';
 // Used for the hover highlight and for the editor highlights after a click.
 
 /** The parts of a React Flow edge the route needs. */
+/** A place in the source file of an arrow that writes the imported name: 1-based line and the word. */
+export interface UsageSite {
+  line: number;
+  name: string;
+}
+
 export interface RouteEdge {
   source: string;
   target: string;
   sourceHandle?: string | null;
   targetHandle?: string | null;
+  data?: {
+    /** The symbols the arrow is really between (row keys), which can differ from the handles while a card hides a row. */
+    fromKey?: string;
+    toKey?: string;
+    /** Where the source file writes the imported name. */
+    sites?: UsageSite[];
+  };
 }
 
 export interface Route<E extends RouteEdge> {
@@ -29,8 +42,8 @@ export interface Route<E extends RouteEdge> {
 
 // A symbol is identified by its card and row key ("file" is the card header).
 // Handle ids look like `s:UserService.find` (arrow leaves) or `t:UserService.find` (arrow arrives).
-const from = (edge: RouteEdge) => `${edge.source}|${(edge.sourceHandle ?? '').slice(2)}`;
-const to = (edge: RouteEdge) => `${edge.target}|${(edge.targetHandle ?? '').slice(2)}`;
+const from = (edge: RouteEdge) => `${edge.source}|${edge.data?.fromKey ?? (edge.sourceHandle ?? '').slice(2)}`;
+const to = (edge: RouteEdge) => `${edge.target}|${edge.data?.toKey ?? (edge.targetHandle ?? '').slice(2)}`;
 
 export function computeRoute<E extends RouteEdge>(edges: readonly E[], target: { id: string; key?: string }): Route<E> {
   const start = new Set<string>();
@@ -96,11 +109,11 @@ export interface EditorMarks {
  * The code to mark for a clicked symbol (or a whole file, without `key`):
  *   - highlights: the symbols on its route, whole, and whether they are one arrow away
  *   - sites: the exact lines where a name is imported-and-used along the route
- * `edges` are the React Flow edges; their `data.lines` come from the symbol links.
+ * `edges` are the React Flow edges; their `data.sites` come from the symbol links.
  */
 export function editorMarks(
   nodes: readonly GraphNode[],
-  edges: readonly (RouteEdge & { data?: { lines?: number[] } })[],
+  edges: readonly RouteEdge[],
   target: { id: string; key?: string },
 ): EditorMarks {
   const route = computeRoute(edges, target);
@@ -122,7 +135,7 @@ export function editorMarks(
         continue;
       }
       listed.add(`${file}:${range.startLine}`);
-      highlights.push({ file, ...range, role, direct: direct.has(end) });
+      highlights.push({ file, key: end.slice(split + 1), ...range, role, direct: direct.has(end) });
     }
   }
 
@@ -130,12 +143,12 @@ export function editorMarks(
   const sites: CodeSite[] = [];
   const seen = new Set<string>();
   for (const edge of route.edges) {
-    const reachedForward = route.downstream.has(`${edge.source}|${(edge.sourceHandle ?? '').slice(2)}`);
-    for (const line of edge.data?.lines ?? []) {
+    const reachedForward = route.downstream.has(from(edge));
+    for (const { line, name } of edge.data?.sites ?? []) {
       const role = reachedForward ? 'uses' : 'usedBy';
-      if (!seen.has(`${edge.source}:${line}:${role}`)) {
-        seen.add(`${edge.source}:${line}:${role}`);
-        sites.push({ file: edge.source, line, role });
+      if (!seen.has(`${edge.source}:${line}:${name}:${role}`)) {
+        seen.add(`${edge.source}:${line}:${name}:${role}`);
+        sites.push({ file: edge.source, line, name, role });
       }
     }
   }
