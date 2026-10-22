@@ -46,7 +46,7 @@ describe('linkImports', () => {
       [{ file: 'users.ts', bindings: [named('getUsers')] }],
     );
     expect(linksBetween(page, users)).toEqual([
-      { from: { symbol: 'UsersPage' }, to: { symbol: 'getUsers' }, lines: [5, 9] },
+      { from: { symbol: 'UsersPage' }, to: { symbol: 'getUsers' }, lines: [5, 9], name: 'getUsers' },
     ]);
   });
 

@@ -194,6 +194,8 @@ export interface SymbolLink {
   to?: SymbolRef;
   /** The lines of the importing file where `from` mentions the imported name: the exact places that depend on `to`. */
   lines?: number[];
+  /** The name as written in the importing file (its local name), so the exact word can be marked on those lines. */
+  name?: string;
 }
 
 /** An arrow in the diagram: the file `from` imports the file `to`. */

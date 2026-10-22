@@ -40,7 +40,7 @@ function linksFor(file: AnalyzedFile, imported: ResolvedImport, target: Analyzed
       links.push({ ...(to ? { to } : {}) }); // imported but not used inside any symbol
     }
     for (const { ref: from, lines } of users) {
-      links.push({ from, ...(to ? { to } : {}), ...(lines ? { lines } : {}) });
+      links.push({ from, ...(to ? { to } : {}), ...(lines ? { lines, name: binding.local } : {}) });
     }
   }
   return links;
