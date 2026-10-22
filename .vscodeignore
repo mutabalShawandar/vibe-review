@@ -1,5 +1,7 @@
 .vscode/**
 .github/**
+.gitignore
+.editorconfig
 src/**
 node_modules/**
 PLAN.md

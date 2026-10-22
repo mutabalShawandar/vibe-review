@@ -23,3 +23,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The extension must also package into an installable .vsix.
+      - run: npm run package
