@@ -1,8 +1,9 @@
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, type CSSProperties } from 'react';
 import type { NodeStatus, SymbolKind } from '../../src/core/types';
 import { buildCard, CARD_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, ROW_HEIGHT, splitPath } from './card';
 import type { FileCardNode } from './layout';
+import { ROLE_STYLE } from './roles';
 
 /** Lets a card ask the app to expand or collapse it, without passing callbacks through React Flow's node data. */
 export const CardActions = createContext<{
@@ -51,10 +52,11 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
   useEffect(() => updateNodeInternals(id), [id, card.rows.length, updateNodeInternals]);
 
   const { name, folder } = splitPath(node.id);
+  const role = node.role && node.role !== 'other' ? ROLE_STYLE[node.role] : undefined;
   const seenKeys = new Set<string>(); // a type and a function can share a name; only the first row gets arrows
 
   return (
-    <div className={`file-card status-${node.status}${fresh ? ' is-fresh' : ''}${editing ? ' is-editing' : ''}`} style={{ width: CARD_WIDTH }} onMouseLeave={blur}>
+    <div className={`file-card status-${node.status}${fresh ? ' is-fresh' : ''}${editing ? ' is-editing' : ''}`} style={{ width: CARD_WIDTH, ...(role ? { '--role': role.color } : {}) } as CSSProperties} onMouseLeave={blur}>
       <header
         className="file-card__header"
         style={{ height: HEADER_HEIGHT }}
@@ -85,7 +87,16 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
           {review?.order === 1 && <span className="chip chip-start">start here</span>}
           {node.entryPoint && <span className="chip chip-entry">{node.entryPoint}</span>}
         </div>
-        {folder && <div className="file-card__folder">{folder}</div>}
+        {(role || folder) && (
+          <div className="file-card__meta">
+            {role && (
+              <span className="role-chip" title={role.hint}>
+                {role.label}
+              </span>
+            )}
+            {folder && <span className="file-card__folder">{folder}</span>}
+          </div>
+        )}
       </header>
 
       {card.rows.map((row, index) => {

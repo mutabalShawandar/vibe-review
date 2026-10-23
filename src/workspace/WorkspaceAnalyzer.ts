@@ -1,5 +1,6 @@
 import { promises as fs, readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import type { FrameworkRegistry } from '../core/FrameworkRegistry';
 import type { ResolveContext } from '../core/LanguageStrategy';
 import type { StrategyRegistry } from '../core/StrategyRegistry';
 import type { AnalyzedFile, ImportBinding, ImportRef, ResolvedImport, SymbolInfo } from '../core/types';
@@ -52,6 +53,8 @@ export class WorkspaceAnalyzer {
     private readonly root: string,
     private readonly registry: StrategyRegistry,
     private readonly parser: ParserLoader,
+    /** Optional: without it files get no role. */
+    private readonly frameworks?: FrameworkRegistry,
   ) {}
 
   async analyze(onProgress?: (done: number, total: number) => void): Promise<AnalysisResult> {
@@ -99,6 +102,8 @@ export class WorkspaceAnalyzer {
     // Resolution runs on every scan (it is cheap) because it depends on the whole file set.
     const resolveStart = Date.now();
     const context = this.resolveContext(new Set(listed));
+    // The framework is judged once per scan (it reads package.json); roles come from paths, so they are not cached.
+    const framework = this.frameworks?.detect(context);
     const files = [...parsed].map(([file, info]): AnalyzedFile => {
       const strategy = this.registry.forId(info.language)!;
       // One entry per target file: a file imported by two statements gets both their names.
@@ -117,12 +122,15 @@ export class WorkspaceAnalyzer {
         byTarget.set(target, entry);
       }
       const imports = [...byTarget.values()].sort((a, b) => a.file.localeCompare(b.file));
+      const role = framework ? this.frameworks!.roleOf(framework, file) : 'other';
+      const entryPoint = info.entryPoint ?? framework?.entryPoint?.(file);
       return {
         path: file,
         language: info.language,
         symbols: info.symbols,
         imports,
-        ...(info.entryPoint ? { entryPoint: info.entryPoint } : {}),
+        ...(entryPoint ? { entryPoint } : {}),
+        ...(role !== 'other' ? { role } : {}),
       };
     });
 

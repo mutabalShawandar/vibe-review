@@ -16,6 +16,7 @@ First alpha. TypeScript, JavaScript and Next.js projects.
 - Cards stand out from the canvas; the colors follow the VS Code theme.
 - `npm run install:vscode` builds a `.vsix` and installs it into your normal VS Code, and the README has an install and quick start guide.
 - A `Ctrl+Shift+B` task that opens the development window without a debugger (avoids the F5 "extension host did not start in 10 seconds" error).
+- Each file card shows its role (Page, UI, API, Hook, Logic, Types, Test) as a colored chip with a matching header tint. Roles come from a framework strategy picked per project (Next.js App and Pages Router, plus generic folder conventions), and Next.js files get labels such as "Next.js page" and "Next.js route handler". Frameworks are a new extension point; see CONTRIBUTING.md.
 
 ### Changed
 - Bigger text and cards, higher contrast for secondary text, thicker arrows and larger connection points, so the diagram is easier to read.

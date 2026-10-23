@@ -127,8 +127,17 @@ body {
   text-overflow: ellipsis;
 }
 
-.file-card__folder {
+.file-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   margin-top: 3px;
+}
+.file-card__folder {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
   font-size: 12px;
   opacity: 0.8;
   white-space: nowrap;
@@ -584,4 +593,20 @@ body {
 }
 .react-flow__background {
   opacity: 0.5; /* a calmer canvas, so the cards read as the foreground */
+}
+
+/* --- the role of a file (page, UI, API...): a chip and a tint on the header --- */
+.role-chip {
+  flex: none;
+  padding: 0 7px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  color: color-mix(in srgb, var(--role) 55%, var(--vscode-editor-foreground, #cccccc));
+  background: color-mix(in srgb, var(--role) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--role) 55%, transparent);
+}
+.file-card[style*="--role"] .file-card__header {
+  background: color-mix(in srgb, var(--role) 12%, transparent);
 }

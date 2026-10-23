@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { GitChangeProvider } from './changes/GitChangeProvider';
 import type { GraphScope } from './core/types';
+import { createFrameworkRegistry } from './frameworks';
 import { createRegistry } from './languages';
 import { ReviewPanel } from './ui/ReviewPanel';
 import { ReviewStatusBar } from './ui/ReviewStatusBar';
@@ -22,7 +23,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const registry = createRegistry();
 
   // Scans the workspace and builds graphs; its cache is shared by the panel and the debug commands.
-  const graphService = new GraphService(registry, parser);
+  const graphService = new GraphService(registry, parser, createFrameworkRegistry());
 
   // Notices file changes from any tool; the panel and the status bar both listen to it.
   const watcher = new ChangeWatcher();

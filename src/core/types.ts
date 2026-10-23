@@ -1,4 +1,5 @@
 import type { Tree } from 'web-tree-sitter';
+import type { FileRole } from './FrameworkStrategy';
 
 // Shared data shapes. Language-agnostic: nothing here may mention a specific language.
 // All file paths are workspace-relative with forward slashes (e.g. "src/app/page.tsx"),
@@ -111,6 +112,8 @@ export interface AnalyzedFile {
   imports: ResolvedImport[];
   /** Set by the strategy for notable files, e.g. "Next.js page". */
   entryPoint?: string;
+  /** What the file is for, from the project's framework (page, UI, API...). Absent when nothing recognized it. */
+  role?: FileRole;
 }
 
 // --- What changed in git -----------------------------------------------------------
@@ -175,6 +178,8 @@ export interface GraphNode {
   symbols: GraphSymbol[];
   /** Set by the strategy for notable files, e.g. "Next.js page", "FastAPI router". */
   entryPoint?: string;
+  /** What the file is for (page, UI, API...), shown as a chip on the card. Absent when nothing recognized it. */
+  role?: FileRole;
 }
 
 /** A symbol in a file, or one of its members: `{ symbol: 'UserService', member: 'find' }`. */

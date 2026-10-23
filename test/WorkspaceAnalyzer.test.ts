@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createFrameworkRegistry } from '../src/frameworks';
 import { createRegistry } from '../src/languages';
 import { ParserLoader } from '../src/parser/ParserLoader';
 import { WorkspaceAnalyzer } from '../src/workspace/WorkspaceAnalyzer';
@@ -139,5 +140,41 @@ describe('WorkspaceAnalyzer', () => {
       [1, 2],
       [2, 2],
     ]);
+  });
+});
+
+describe('WorkspaceAnalyzer roles', () => {
+  const withFrameworks = () => new WorkspaceAnalyzer(dir, createRegistry(), parser, createFrameworkRegistry());
+  const rolesOf = async () =>
+    Object.fromEntries((await withFrameworks().analyze()).files.map((f) => [f.path, { role: f.role, entry: f.entryPoint }]));
+
+  it('gives files their role and Next.js label when the project uses Next.js', async () => {
+    write('package.json', '{ "dependencies": { "next": "15.0.0" } }');
+    write('src/app/users/page.tsx', 'export default function Page() {}\n');
+    write('src/components/Button.tsx', 'export function Button() {}\n');
+    write('src/index.ts', 'export const a = 1;\n');
+
+    expect(await rolesOf()).toEqual({
+      'src/app/users/page.tsx': { role: 'page', entry: 'Next.js page' },
+      'src/components/Button.tsx': { role: 'ui', entry: undefined },
+      'src/index.ts': { role: undefined, entry: undefined },
+    });
+  });
+
+  it('uses only the generic conventions in a project without a known framework', async () => {
+    write('package.json', '{ "dependencies": { "react": "19.0.0" } }');
+    write('src/app/users/page.tsx', 'export default function Page() {}\n');
+    write('src/hooks/useUser.ts', 'export function useUser() {}\n');
+
+    expect(await rolesOf()).toEqual({
+      'src/app/users/page.tsx': { role: undefined, entry: undefined },
+      'src/hooks/useUser.ts': { role: 'hook', entry: undefined },
+    });
+  });
+
+  it('gives no roles when no frameworks are provided', async () => {
+    write('src/components/Button.tsx', 'export function Button() {}\n');
+    const { files } = await new WorkspaceAnalyzer(dir, createRegistry(), parser).analyze();
+    expect('role' in files[0]!).toBe(false);
   });
 });

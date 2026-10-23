@@ -1,5 +1,6 @@
 import { GitChangeProvider } from '../changes/GitChangeProvider';
 import { buildGraph } from '../core/GraphBuilder';
+import type { FrameworkRegistry } from '../core/FrameworkRegistry';
 import type { StrategyRegistry } from '../core/StrategyRegistry';
 import type { ChangeSet, GraphModel, GraphScope } from '../core/types';
 import type { ParserLoader } from '../parser/ParserLoader';
@@ -24,6 +25,7 @@ export class GraphService {
   constructor(
     private readonly registry: StrategyRegistry,
     private readonly parser: ParserLoader,
+    private readonly frameworks?: FrameworkRegistry,
   ) {}
 
   /** Whether a language strategy handles this file, i.e. whether it can ever appear in the diagram. */
@@ -38,7 +40,7 @@ export class GraphService {
   ): Promise<WorkspaceGraph> {
     let analyzer = this.analyzers.get(root);
     if (!analyzer) {
-      analyzer = new WorkspaceAnalyzer(root, this.registry, this.parser);
+      analyzer = new WorkspaceAnalyzer(root, this.registry, this.parser, this.frameworks);
       this.analyzers.set(root, analyzer);
     }
 

@@ -292,4 +292,11 @@ describe('entry points', () => {
     expect(graph.nodes.find((n) => n.id === 'page.tsx')!.entryPoint).toBe('Next.js page');
     expect('entryPoint' in graph.nodes.find((n) => n.id === 'util.ts')!).toBe(false);
   });
+
+  it('carries the role of a file to its node, and leaves it out when there is none', () => {
+    const files: AnalyzedFile[] = [{ ...file('Button.tsx'), role: 'ui' }, file('util.ts')];
+    const graph = buildGraph(files, [], 'full');
+    expect(graph.nodes.find((n) => n.id === 'Button.tsx')!.role).toBe('ui');
+    expect('role' in graph.nodes.find((n) => n.id === 'util.ts')!).toBe(false);
+  });
 });
