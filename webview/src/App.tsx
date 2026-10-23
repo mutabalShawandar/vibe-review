@@ -31,6 +31,8 @@ export function App() {
   const [scope, setScope] = useState<GraphScope>('changes');
   // Show every symbol of every card, instead of only what changed in the big ones.
   const [fullView, setFullView] = useState(false);
+  // Stack the cards in bands by role (frontend on top, backend below) instead of one mixed diagram.
+  const [groupByRole, setGroupByRole] = useState(true);
   // Follow the live edits. Moving the view by hand pauses it until the reader resumes.
   const [follow, setFollow] = useState<FollowMode>('latest');
   const [paused, setPaused] = useState(false);
@@ -67,6 +69,7 @@ export function App() {
   return (
     <div className="app">
       <header className="toolbar">
+        <div className="toolbar__row">
         <div className="scope-toggle" role="group" aria-label="View">
           <button aria-pressed={scope === 'changes'} onClick={() => chooseScope('changes')}>
             Changes
@@ -77,6 +80,9 @@ export function App() {
         </div>
         <button className="toggle-button" aria-pressed={fullView} onClick={() => setFullView(!fullView)} title="Show every symbol of every file, not only what changed in the big ones">
           Full view
+        </button>
+        <button className="toggle-button" aria-pressed={groupByRole} onClick={() => setGroupByRole(!groupByRole)} title="Stack the files in bands by what they are: frontend on top, backend below, shared files last">
+          Group by role
         </button>
         <label className="follow" title="Move the view to the files the agent just edited">
           Follow
@@ -104,11 +110,14 @@ export function App() {
             Resume follow
           </button>
         )}
-        {state.kind === 'graph' && <Summary graph={state.graph} />}
-        <Legend />
+        </div>
+        <div className="toolbar__row toolbar__info">
+          {state.kind === 'graph' && <Summary graph={state.graph} />}
+          <Legend />
+        </div>
       </header>
       <main className="canvas">
-        <Body state={state} fullView={fullView} setFullView={setFullView} follow={follow} paused={paused} setPaused={setPaused} resumes={resumes} />
+        <Body state={state} fullView={fullView} setFullView={setFullView} groupByRole={groupByRole} follow={follow} paused={paused} setPaused={setPaused} resumes={resumes} />
       </main>
     </div>
   );
@@ -190,6 +199,7 @@ function Body({
   state,
   fullView,
   setFullView,
+  groupByRole,
   follow,
   paused,
   setPaused,
@@ -198,6 +208,7 @@ function Body({
   state: State;
   fullView: boolean;
   setFullView(value: boolean): void;
+  groupByRole: boolean;
   follow: FollowMode;
   paused: boolean;
   setPaused(value: boolean): void;
@@ -220,6 +231,7 @@ function Body({
         touched={state.touched}
         fullView={fullView}
         setFullView={setFullView}
+        groupByRole={groupByRole}
         follow={follow}
         paused={paused}
         setPaused={setPaused}
@@ -234,6 +246,7 @@ function Graph({
   touched,
   fullView,
   setFullView,
+  groupByRole,
   follow,
   paused,
   setPaused,
@@ -243,6 +256,7 @@ function Graph({
   touched: string[];
   fullView: boolean;
   setFullView(value: boolean): void;
+  groupByRole: boolean;
   follow: FollowMode;
   paused: boolean;
   setPaused(value: boolean): void;
@@ -578,14 +592,14 @@ function Graph({
   // stays on screen while a new one is computed, so expanding a card does not blank the graph.
   useEffect(() => {
     let cancelled = false; // a newer request may arrive before this layout finishes
-    layoutGraph(graph, shown).then(
+    layoutGraph(graph, shown, { groupByRole }).then(
       (result) => !cancelled && setElements(result),
       (error) => console.error('Layout failed', error),
     );
     return () => {
       cancelled = true;
     };
-  }, [graph, shown]);
+  }, [graph, shown, groupByRole]);
 
   if (!elements) {
     return <p className="message">Laying out {graph.nodes.length} files...</p>;

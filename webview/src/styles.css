@@ -22,10 +22,25 @@ body {
 
 .toolbar {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+/* Controls on the first row; what the diagram contains and what the colors mean on the second. */
+.toolbar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.toolbar__info {
+  justify-content: space-between;
+}
+.summary,
+.legend__item {
+  white-space: nowrap;
 }
 
 .scope-toggle button {
@@ -435,7 +450,6 @@ body {
 .legend {
   display: flex;
   gap: 12px;
-  margin-left: auto;
   font-size: 13px;
 }
 .legend__item {
