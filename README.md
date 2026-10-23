@@ -119,8 +119,9 @@ If something else goes wrong, open the **Output** panel and pick **Vibe Review**
 
 1. **Changes** come from the git working tree (`git diff` plus untracked files), so any tool that writes files works. Nothing is specific to one agent.
 2. **Parsing** uses tree-sitter (WASM). Each language is a strategy in `src/languages/<language>/` that reports symbols, imports, and where imported names are used. The core never mentions a language.
-3. **The graph** is built in `src/core/`: import edges, symbol-to-symbol links, which symbols are relevant, and the review order (foundations first, then the files most others import).
-4. **The UI** is a React app (React Flow for drawing, elkjs for layout) in `webview/`. It only receives plain JSON, so it knows nothing about languages.
+3. **Frameworks** are separate from languages: a strategy in `src/frameworks/<name>/` is picked once per project (from `package.json` or a config file) and says what each file is for (page, UI, API, hook, lib...). Next.js is supported, with generic React/Node folder conventions as the fallback.
+4. **The graph** is built in `src/core/`: import edges, symbol-to-symbol links, which symbols are relevant, and the review order (foundations first, then the files most others import).
+5. **The UI** is a React app (React Flow for drawing, elkjs for layout) in `webview/`. It only receives plain JSON, so it knows nothing about languages.
 
 Usage detection is approximate: it matches imported names inside each symbol and does not model shadowing or dynamic access.
 

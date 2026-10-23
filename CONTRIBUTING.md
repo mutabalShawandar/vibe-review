@@ -50,6 +50,7 @@ src/
   core/          Language-agnostic. Types, the strategy interface, the registry, the graph builder.
   changes/       Reads git's view of the changes (git diff, untracked files).
   languages/     One folder per language, registered in languages/index.ts.
+  frameworks/    One folder per framework (Next.js...), registered in frameworks/index.ts.
   parser/        Loads tree-sitter grammars (WASM).
   workspace/     Scans the workspace, caches analysis, watches for file changes.
   ui/            The VS Code side of the panel: webview host, messages, status bar, editor marks.
@@ -80,6 +81,21 @@ This is the contribution we want most. A language is one folder plus one line.
 4. **Register it** with one line in [`src/languages/index.ts`](src/languages/index.ts).
 5. **Test it.** Put fixture files in `test/fixtures/<lang>/` and write tests like `test/TypeScriptStrategy.test.ts` and `test/resolveImport.test.ts`: symbols with their lines, imports with their bindings, and import resolution.
 6. **Try it for real** with `npm run host` on a project in that language, and include a screenshot in the pull request.
+
+## Adding a framework
+
+A *language* is how files are parsed; a *framework* is how a project is laid out. `.tsx` is TypeScript whether the project uses Next.js, Remix or Vite, so the two are separate strategies. The language strategy is picked per file by its extension. The framework strategy is picked once per project by looking at what it depends on. Frameworks never parse code: they only say **what a file is for**, so the diagram can group and color files by role (page, UI, API, hook, lib, types, test) whatever the folder names are.
+
+1. **Create `src/frameworks/<name>/<Name>Strategy.ts`** implementing `FrameworkStrategy` (see the comments in [`src/core/FrameworkStrategy.ts`](src/core/FrameworkStrategy.ts)):
+   - `id` and `name`: e.g. `remix` and `Remix`.
+   - `detect(ctx)`: does this workspace use the framework? Read `package.json` dependencies or a config file through `ctx` (workspace-relative paths, no `fs`). Keep it cheap.
+   - `roleOf(path)`: the `FileRole` of a file judged from its path alone, or `undefined` when you have no opinion. Return `undefined` for what you do not know: the generic conventions (`components/` is UI, `hooks/` are hooks, `lib/` is logic) are tried next, so you only describe what is special to your framework.
+   - `entryPoint?(path)`: optional label for the files the framework treats specially, e.g. `Next.js route handler`.
+2. **Register it** with one line in [`src/frameworks/index.ts`](src/frameworks/index.ts), **above** `GenericStrategy`. Order is specificity: the first strategy whose `detect` says yes wins, and the generic one, which matches everything, goes last.
+3. **Test it** like `test/frameworks.test.ts`: detection from an in-memory workspace (`{ 'package.json': '...' }`), and `roleOf` and `entryPoint` for real paths, including the ones that must *not* match.
+4. **Missing a role?** The roles (`FileRole`) are shared by every framework. If your framework needs one that does not exist, propose it in an issue first.
+
+The same idea applies to other ecosystems (Django and FastAPI for Python, Express for Node): the language strategy parses, the framework strategy names the roles.
 
 ## Working on the webview
 
