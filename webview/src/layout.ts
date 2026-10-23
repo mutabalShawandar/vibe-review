@@ -4,6 +4,7 @@ import type { GraphModel, GraphNode } from '../../src/core/types';
 import { buildCard, CARD_WIDTH, cardHeight, FILE_PORT, portKey, visiblePort, type Card } from './card';
 import { computeFeatures } from './review';
 import type { UsageSite } from './route';
+import { roleRank, ZONE_ORDER, zoneOf } from './zones';
 
 /** What a file card needs to draw itself. */
 export interface CardData extends Record<string, unknown> {
@@ -123,7 +124,17 @@ const LAYOUT_OPTIONS = {
   'elk.spacing.nodeNode': '30',
   // Unconnected files form their own groups; keep the overall shape roughly screen-like.
   'elk.aspectRatio': '1.6',
+  // Where the arrows allow either order, keep the order the cards were given in, so cards of one role stay together.
+  'elk.layered.considerModelOrder.strategy': 'PREFER_NODES',
 };
+
+/** Empty space between two zones (frontend, backend...), in pixels: what tells them apart, since there are no borders. */
+export const ZONE_GAP = 160;
+
+export interface LayoutOptions {
+  /** Stack the cards in bands by role (frontend on top, backend below) instead of one mixed diagram. Default true. */
+  groupByRole?: boolean;
+}
 
 /**
  * Position every card automatically. Files that are imported go on the left and the files that
@@ -132,6 +143,7 @@ const LAYOUT_OPTIONS = {
 export async function layoutGraph(
   graph: GraphModel,
   expanded: ReadonlySet<string> = new Set(),
+  { groupByRole = true }: LayoutOptions = {},
 ): Promise<{ nodes: FileCardNode[]; edges: Edge[] }> {
   const { nodes, edges } = toFlowElements(graph, expanded);
   if (nodes.length === 0) {
@@ -144,23 +156,42 @@ export async function layoutGraph(
     cardLinks.set(`${edge.from}\0${edge.to}`, { from: edge.from, to: edge.to });
   }
 
-  const root: ElkNode = {
-    id: 'root',
-    layoutOptions: LAYOUT_OPTIONS,
-    children: nodes.map((node) => ({ id: node.id, width: CARD_WIDTH, height: node.height })),
-    // The layout sees every arrow reversed (imported file -> importing file), so that imported
-    // files are placed first, on the left. The arrows we DRAW still point from importer to imported.
-    edges: [...cardLinks.values()].map(({ from, to }, index) => ({ id: `e${index}`, sources: [to], targets: [from] })),
-  };
+  // One band per zone, each laid out on its own (only the arrows inside it count), then stacked
+  // top to bottom. Arrows between bands are still drawn, they just do not shape the layout.
+  const bands = groupByRole
+    ? ZONE_ORDER.map((zone) => nodes.filter((node) => zoneOf(node.data.node.role) === zone)).filter((band) => band.length > 0)
+    : [nodes];
 
-  const laidOut = await elk.layout(root);
-  const positions = new Map((laidOut.children ?? []).map((child) => [child.id, child]));
+  const positions = new Map<string, { x: number; y: number }>();
+  let top = 0;
+  for (const band of bands) {
+    // Cards of one role sit together: the layout keeps this order wherever the arrows allow either.
+    const ordered = [...band].sort(
+      (a, b) => roleRank(a.data.node.role) - roleRank(b.data.node.role) || a.id.localeCompare(b.id),
+    );
+    const inBand = new Set(ordered.map((node) => node.id));
+    const root: ElkNode = {
+      id: 'root',
+      layoutOptions: LAYOUT_OPTIONS,
+      children: ordered.map((node) => ({ id: node.id, width: CARD_WIDTH, height: node.height })),
+      // The layout sees every arrow reversed (imported file -> importing file), so that imported
+      // files are placed first, on the left. The arrows we DRAW still point from importer to imported.
+      edges: [...cardLinks.values()]
+        .filter(({ from, to }) => inBand.has(from) && inBand.has(to))
+        .map(({ from, to }, index) => ({ id: `e${index}`, sources: [to], targets: [from] })),
+    };
+
+    const laidOut = await elk.layout(root);
+    let bottom = 0;
+    for (const child of laidOut.children ?? []) {
+      positions.set(child.id, { x: child.x ?? 0, y: top + (child.y ?? 0) });
+      bottom = Math.max(bottom, (child.y ?? 0) + (child.height ?? 0));
+    }
+    top += bottom + ZONE_GAP;
+  }
 
   return {
-    nodes: nodes.map((node) => ({
-      ...node,
-      position: { x: positions.get(node.id)?.x ?? 0, y: positions.get(node.id)?.y ?? 0 },
-    })),
+    nodes: nodes.map((node) => ({ ...node, position: positions.get(node.id) ?? { x: 0, y: 0 } })),
     edges,
   };
 }
