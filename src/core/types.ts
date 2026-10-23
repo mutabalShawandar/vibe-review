@@ -211,6 +211,16 @@ export interface GraphEdge {
   uses: SymbolLink[];
 }
 
+/** Files in a language Vibe Review cannot read yet: they are not in the diagram, and this says so. */
+export interface UnsupportedLanguage {
+  /** Display name, e.g. "Python". */
+  language: string;
+  /** How many such files the project has. */
+  files: number;
+  /** The ones git reports as changed, sorted. */
+  changed: string[];
+}
+
 /** The complete diagram, as plain JSON that is sent to the webview. */
 export interface GraphModel {
   /** Which view this model represents, so the webview can show the active toggle. */
@@ -222,4 +232,6 @@ export interface GraphModel {
    * dependencies first (foundations), then by how many files depend on them.
    */
   reviewOrder: string[];
+  /** Languages in the project that are not analyzed yet. Absent when there are none. */
+  unsupported?: UnsupportedLanguage[];
 }

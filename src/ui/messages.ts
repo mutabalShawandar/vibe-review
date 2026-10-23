@@ -3,6 +3,9 @@ import type { GraphModel, GraphScope } from '../core/types';
 // The messages the extension and the webview send each other. Both sides import this
 // file, so TypeScript catches a message that one side sends and the other does not expect.
 
+/** The only web addresses the extension opens on the webview's request. */
+export const PROJECT_URL = 'https://github.com/mutabalShawandar/vibe-review/';
+
 /** Extension -> webview. */
 export type HostMessage =
   | { type: 'loading'; message: string }
@@ -18,6 +21,10 @@ export type HostMessage =
 export type WebviewMessage =
   | { type: 'ready' } // the page has loaded and can receive a graph
   | { type: 'setScope'; scope: GraphScope }
+  // Open a file as it is, e.g. a changed file in a language the diagram cannot show.
+  | { type: 'openFile'; file: string }
+  // Open a web page (only addresses of this project are accepted by the extension).
+  | { type: 'openLink'; url: string }
   // Show a symbol in the editor and mark its route in the code: `file` at `line`..`endLine` (1-based,
   // workspace-relative path), and the symbols connected to it as `highlights`.
   | {

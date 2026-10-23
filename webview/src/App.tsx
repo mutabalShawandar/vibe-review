@@ -8,6 +8,7 @@ import type { RowMark } from './layout';
 import { computeRoute, editorMarks, rangeOf } from './route';
 import { CARD_WIDTH, splitPath } from './card';
 import { layoutGraph, type FileCardNode } from './layout';
+import { UnsupportedCard } from './UnsupportedCard';
 import { freshSince, type Fresh } from './fresh';
 import { computeFeatures } from './review';
 import { PLACEHOLDER_HEIGHT, PlaceholderCard, type PlaceholderNode } from './PlaceholderCard';
@@ -117,6 +118,7 @@ export function App() {
         </div>
       </header>
       <main className="canvas">
+        {state.kind === 'graph' && state.graph.unsupported && <UnsupportedCard languages={state.graph.unsupported} />}
         <Body state={state} fullView={fullView} setFullView={setFullView} groupByRole={groupByRole} follow={follow} paused={paused} setPaused={setPaused} resumes={resumes} />
       </main>
     </div>
@@ -153,7 +155,7 @@ function Summary({ graph }: { graph: GraphModel }) {
 }
 
 /** Shown when the diagram has no files. If a file is written meanwhile, say that the agent is at work. */
-function EmptyState({ scope }: { scope: GraphScope }) {
+function EmptyState({ scope, onlyUnsupported }: { scope: GraphScope; onlyUnsupported: boolean }) {
   const [working, setWorking] = useState<string[]>([]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -184,6 +186,13 @@ function EmptyState({ scope }: { scope: GraphScope }) {
         Agent is working on {working.map((file) => splitPath(file).name).join(', ')}
         <div className="placeholder-card__hint">It appears here as soon as the edit settles.</div>
       </div>
+    );
+  }
+  if (onlyUnsupported) {
+    return (
+      <p className="message">
+        Your changes are in languages Vibe Review cannot read yet (see the note in the corner), so there is nothing to draw. Review them in the editor.
+      </p>
     );
   }
   return (
@@ -221,7 +230,7 @@ function Body({
     return <p className="message error">{state.message}</p>;
   }
   if (state.graph.nodes.length === 0) {
-    return <EmptyState scope={state.graph.scope} />;
+    return <EmptyState scope={state.graph.scope} onlyUnsupported={Boolean(state.graph.unsupported?.some((language) => language.changed.length > 0))} />;
   }
   return (
     <ReactFlowProvider>

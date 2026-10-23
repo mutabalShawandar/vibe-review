@@ -62,8 +62,10 @@ describe('WorkspaceAnalyzer', () => {
     write('node_modules/pkg/index.ts', 'export const x = 1;\n');
     write('dist/out.js', 'var x = 1;\n');
 
-    const { files } = await analyzer().analyze();
+    const { files, otherFiles } = await analyzer().analyze();
     expect(files.map((f) => f.path)).toEqual(['a.ts']);
+    // The Python file is reported as "not analyzed" (so the view can say so); ignored folders are not.
+    expect(otherFiles).toEqual(['.gitignore', 'script.py']);
   });
 
   it('does not resolve imports into ignored folders', async () => {

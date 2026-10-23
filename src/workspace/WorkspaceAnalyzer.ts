@@ -20,6 +20,8 @@ function sameBinding(a: ImportBinding, b: ImportBinding): boolean {
 
 export interface AnalysisResult {
   files: AnalyzedFile[];
+  /** Workspace files no language strategy handles (any file type, so the caller decides which matter). */
+  otherFiles: string[];
   /** Files that could not be analyzed, with the reason. */
   skipped: { path: string; reason: string }[];
   /** Files parsed again this time because they were new or edited, newest edit first. */
@@ -62,6 +64,7 @@ export class WorkspaceAnalyzer {
     const listed = await listWorkspaceFiles(this.root);
     const listMs = Date.now() - listStart;
     const codeFiles = listed.filter((file) => this.registry.forFile(file) !== undefined);
+    const otherFiles = listed.filter((file) => this.registry.forFile(file) === undefined);
 
     const skipped: AnalysisResult['skipped'] = [];
     const parsed = new Map<string, CachedFile>();
@@ -142,7 +145,7 @@ export class WorkspaceAnalyzer {
       cachedFiles,
     };
     reparsed.sort((a, b) => b.mtimeMs - a.mtimeMs);
-    return { files, skipped, reparsed: reparsed.map((entry) => entry.file), stats };
+    return { files, otherFiles, skipped, reparsed: reparsed.map((entry) => entry.file), stats };
   }
 
   /** Analyze one file, reusing the cached result if the file has not changed. */

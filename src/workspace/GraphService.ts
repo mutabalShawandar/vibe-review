@@ -3,6 +3,7 @@ import { buildGraph } from '../core/GraphBuilder';
 import type { FrameworkRegistry } from '../core/FrameworkRegistry';
 import type { StrategyRegistry } from '../core/StrategyRegistry';
 import type { ChangeSet, GraphModel, GraphScope } from '../core/types';
+import { describeUnsupported } from '../languages/unsupported';
 import type { ParserLoader } from '../parser/ParserLoader';
 import { WorkspaceAnalyzer, type AnalysisResult } from './WorkspaceAnalyzer';
 
@@ -46,6 +47,17 @@ export class GraphService {
 
     const analysis = await analyzer.analyze(onProgress);
     const changes = await new GitChangeProvider(root).getChanges();
-    return { graph: buildGraph(analysis.files, changes, scope), changeCount: changes.length, changes, analysis };
+    const graph = buildGraph(analysis.files, changes, scope);
+    // Languages without a strategy are not in the diagram; say so instead of leaving the reviewer guessing.
+    const unsupported = describeUnsupported(
+      analysis.otherFiles,
+      changes.map((change) => change.path),
+    );
+    return {
+      graph: unsupported.length > 0 ? { ...graph, unsupported } : graph,
+      changeCount: changes.length,
+      changes,
+      analysis,
+    };
   }
 }

@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import type { ChangeSet, GraphScope } from '../core/types';
 import type { ChangeWatcher } from '../workspace/ChangeWatcher';
 import type { GraphService } from '../workspace/GraphService';
-import type { CodeHighlight, CodeSite, HostMessage, WebviewMessage } from './messages';
+import { PROJECT_URL, type CodeHighlight, type CodeSite, type HostMessage, type WebviewMessage } from './messages';
 
 // How the code is marked while a symbol is selected in the graph. The colors match the rows in
 // the graph: blue is what the selected symbol uses, orange is what uses it, green is changed code.
@@ -119,6 +119,20 @@ export class ReviewPanel {
       panel.webview.onDidReceiveMessage((message: WebviewMessage) => {
         if (message.type === 'open') {
           void this.openInEditor(message);
+          return;
+        }
+        if (message.type === 'openFile') {
+          const uri = this.resolve(message.file);
+          if (uri) {
+            void vscode.window.showTextDocument(uri, { viewColumn: this.column ?? vscode.ViewColumn.Beside, preserveFocus: false });
+          }
+          return;
+        }
+        if (message.type === 'openLink') {
+          // The webview is a web page; never let it open arbitrary addresses.
+          if (message.url.startsWith(PROJECT_URL)) {
+            void vscode.env.openExternal(vscode.Uri.parse(message.url));
+          }
           return;
         }
         if (message.type === 'setScope') {
