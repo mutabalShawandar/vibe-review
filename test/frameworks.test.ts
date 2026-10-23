@@ -1,6 +1,10 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ResolveContext } from '../src/core/LanguageStrategy';
 import { createFrameworkRegistry } from '../src/frameworks';
+import { NodeResolveContext } from '../src/workspace/NodeResolveContext';
 import { GenericStrategy } from '../src/frameworks/generic/GenericStrategy';
 import { NextJsStrategy } from '../src/frameworks/nextjs/NextJsStrategy';
 
@@ -127,5 +131,50 @@ describe('roles through the registry', () => {
     expect(registry.roleOf(generic, 'src/hooks/useUser.ts')).toBe('hook');
     // Without Next.js, `app/users/page.tsx` is just a file in a folder called app.
     expect(registry.roleOf(generic, 'src/app/users/page.tsx')).toBe('other');
+  });
+});
+
+describe('edge cases', () => {
+  const next = new NextJsStrategy();
+
+  it('knows Next.js files written with Windows separators and plain JavaScript extensions', () => {
+    expect(next.entryPoint('src\\app\\users\\page.jsx')).toBe('Next.js page');
+    expect(next.entryPoint('app/api/users/route.js')).toBe('Next.js route handler');
+    expect(next.entryPoint('middleware.js')).toBe('Next.js middleware');
+  });
+
+  it('treats nested files in pages/api as endpoints and the Pages Router document as special', () => {
+    expect(next.roleOf('pages/api/users/[id].ts')).toBe('api');
+    expect(next.entryPoint('pages/_document.tsx')).toBe('Next.js document');
+    expect(next.entryPoint('pages/users/_app.tsx')).toBe('Next.js page'); // only the root _app is the wrapper
+  });
+
+  it('ignores reserved names that are not source files, or that are outside app/', () => {
+    expect(next.entryPoint('app/users/page.css')).toBeUndefined();
+    expect(next.entryPoint('src/lib/page.tsx')).toBeUndefined();
+    expect(next.entryPoint('src/components/layout.tsx')).toBeUndefined();
+  });
+
+  it('gives a framework that is not registered its own rules only', () => {
+    const stranger = { id: 'x', name: 'X', detect: () => true, roleOf: () => undefined };
+    expect(registry.roleOf(stranger, 'src/components/Button.tsx')).toBe('other');
+  });
+
+  it('returns nothing for an unknown framework id', () => {
+    expect(registry.forId('rails')).toBeUndefined();
+  });
+});
+
+describe('detection on a real folder', () => {
+  it('reads package.json through the real workspace context', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'vibe-framework-'));
+    try {
+      writeFileSync(path.join(root, 'package.json'), JSON.stringify({ dependencies: { next: '15.0.0' } }));
+      expect(registry.detect(new NodeResolveContext(root))?.id).toBe('nextjs');
+      rmSync(path.join(root, 'package.json'));
+      expect(registry.detect(new NodeResolveContext(root))?.id).toBe('generic');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
