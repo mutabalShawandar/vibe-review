@@ -85,7 +85,8 @@
     "host": "node scripts/host.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p webview",
     "test": "vitest run",
-    "package": "vsce package --no-dependencies"
+    "package": "vsce package --no-dependencies",
+    "install:vscode": "npm run build && vsce package --no-dependencies && node scripts/install.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

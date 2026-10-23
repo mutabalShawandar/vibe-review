@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Vibe Review: open test window",
+      "detail": "Builds the extension and opens a VS Code window running it (no debugger, so no 10 second limit). Ctrl+Shift+B.",
+      "type": "npm",
+      "script": "host",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared", "clear": true },
+      "group": { "kind": "build", "isDefault": true }
+    }
+  ]
+}

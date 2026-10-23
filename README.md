@@ -42,9 +42,29 @@ Hovering the marked code shows what the symbol uses and what uses it. Each name 
 
 In the editor the light tint covers the whole symbol; the stronger line and the highlighted word show where the name is written. The same legend is in the toolbar and in the hover card.
 
-## Run it
+## Install and quick start
 
-There is no Marketplace release yet, so for now you run the extension from source in a VS Code development window. It takes about two minutes.
+There is no Marketplace release yet, so you build the extension once and install it into your normal VS Code. After that it works on every project, like any other extension. You need **VS Code 1.90+** (with the `code` command on your PATH), **Node.js 22+** and **git**.
+
+```bash
+git clone https://github.com/mutabalShawandar/vibe-review.git
+cd vibe-review
+npm install
+npm run install:vscode
+```
+
+Then:
+
+1. Reload VS Code (or close and reopen it).
+2. Open any git project that has uncommitted changes, or start your agent on it.
+3. Press `Ctrl+Shift+P` / `Cmd+Shift+P` and run **Vibe Review: Open** (or click `Vibe Review: N changed` in the status bar).
+4. Start with the card marked **start here** in the sidebar. Hover to see connections, click a symbol to read its code.
+
+To update later, `git pull` and run `npm run install:vscode` again. To remove it, uninstall *Vibe Review* from the Extensions view. Want to hack on it instead? See *Run it from source* below.
+
+## Run it from source
+
+Use this to try changes without installing: it runs the extension from source in a separate VS Code development window. It takes about two minutes.
 
 ### Prerequisites
 
@@ -78,9 +98,9 @@ npm run host -- "path/to/the/project/you/want/to/review"
 
 ### Other ways to run it
 
-- **From VS Code:** open this repository and press **F5** (the *Run Extension* configuration). If it complains that the extension host did not start in 10 seconds on a busy machine, use `npm run host` instead, which has no debugger attached.
+- **From VS Code:** open this repository and press **F5** (the *Run Extension* configuration). If it complains that the extension host did not start in 10 seconds on a busy machine, press **Ctrl+Shift+B** instead (or run `npm run host`); it has no debugger attached.
 - **While developing:** `npm run watch` rebuilds on every save; reload the development window (*Developer: Reload Window*) to pick up extension changes. Webview-only changes need just a close and reopen of the Vibe Review tab.
-- **As an installable `.vsix`:** not available yet; it comes with the first release.
+- **As an installable `.vsix`:** `npm run install:vscode` (see *Install and quick start*). A Marketplace release will come later.
 
 ### Troubleshooting
 

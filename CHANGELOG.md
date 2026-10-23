@@ -14,3 +14,8 @@ First alpha. TypeScript, JavaScript and Next.js projects.
 - Live refresh when files change, a status bar item (`Vibe Review: N changed`), an "editing" indicator, placeholder cards for files that are being created, and a follow mode for the view (with *Resume follow*).
 - Large changed files collapse to what changed; *Full view* opens everything.
 - Cards stand out from the canvas; the colors follow the VS Code theme.
+- `npm run install:vscode` builds a `.vsix` and installs it into your normal VS Code, and the README has an install and quick start guide.
+- A `Ctrl+Shift+B` task that opens the development window without a debugger (avoids the F5 "extension host did not start in 10 seconds" error).
+
+### Changed
+- Bigger text and cards, higher contrast for secondary text, thicker arrows and larger connection points, so the diagram is easier to read.

@@ -12,7 +12,7 @@ body {
   background: var(--vscode-editor-background);
   color: var(--vscode-foreground);
   font-family: var(--vscode-font-family);
-  font-size: var(--vscode-font-size);
+  font-size: calc(var(--vscode-font-size) + 1px);
 }
 
 .app {
@@ -51,7 +51,7 @@ body {
 }
 
 .summary {
-  opacity: 0.8;
+  opacity: 0.95;
 }
 
 .canvas {
@@ -79,11 +79,11 @@ body {
 .file-card {
   box-sizing: border-box;
   border: 1px solid var(--vr-line);
-  border-left-width: 5px;
+  border-left-width: 6px;
   border-radius: 6px;
   background: var(--vr-card-bg);
   color: var(--vscode-foreground);
-  font-size: 12px;
+  font-size: 14px;
   overflow: visible;
 }
 
@@ -101,7 +101,7 @@ body {
 }
 
 .file-card.status-unchanged {
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 .file-card__header {
@@ -121,7 +121,7 @@ body {
 
 .file-card__name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -129,7 +129,8 @@ body {
 
 .file-card__folder {
   margin-top: 3px;
-  opacity: 0.6;
+  font-size: 12px;
+  opacity: 0.8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -141,8 +142,9 @@ body {
   flex: none;
   padding: 0 6px;
   border-radius: 8px;
-  font-size: 10px;
-  line-height: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
   white-space: nowrap;
 }
 
@@ -191,12 +193,12 @@ body {
 
 .kind-badge {
   flex: none;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 16px;
+  line-height: 20px;
   text-align: center;
   color: #1e1e1e;
   background: #9e9e9e;
@@ -233,7 +235,7 @@ body {
   border-top: 1px solid var(--vr-line);
   background: transparent;
   color: var(--vscode-textLink-foreground, var(--vr-dependent));
-  font-size: 11px;
+  font-size: 13px;
   text-align: left;
   padding: 0 10px;
   cursor: pointer;
@@ -245,8 +247,8 @@ body {
 
 /* connection points: small dots on the left (arrows leave) and right (arrows arrive) edge of a row */
 .file-card .react-flow__handle {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   min-width: 0;
   min-height: 0;
   border: none;
@@ -254,13 +256,13 @@ body {
 }
 
 .react-flow__edge-path {
-  stroke-width: 1.2;
+  stroke-width: 1.8;
   transition: opacity 0.12s, stroke-width 0.12s;
 }
 
 /* Hover focus: the arrows of the hovered card or symbol stand out, the rest fades back. */
 .react-flow__edge.is-hot .react-flow__edge-path {
-  stroke-width: 2.6;
+  stroke-width: 3.4;
 }
 .react-flow__edge.is-dim {
   opacity: 0.12;
@@ -303,7 +305,7 @@ body {
   position: relative;
 }
 .sidebar {
-  flex: 0 0 280px;
+  flex: 0 0 320px;
   box-sizing: border-box;
   overflow-y: auto;
   padding: 8px 10px 16px;
@@ -311,7 +313,7 @@ body {
 }
 .sidebar__title {
   margin: 4px 0 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -330,7 +332,7 @@ body {
   justify-content: space-between;
   gap: 8px;
   margin: 0 0 4px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 .feature__count {
@@ -371,19 +373,19 @@ body {
 }
 .review-item__folder,
 .review-item__reason {
-  font-size: 11px;
-  opacity: 0.7;
+  font-size: 13px;
+  opacity: 0.85;
 }
 .order-badge {
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 .chip-start {
@@ -425,7 +427,7 @@ body {
   display: flex;
   gap: 12px;
   margin-left: auto;
-  font-size: 12px;
+  font-size: 13px;
 }
 .legend__item {
   display: inline-flex;
@@ -465,7 +467,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .follow select {
   background: var(--vscode-dropdown-background);

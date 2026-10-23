@@ -4,10 +4,10 @@ import type { GraphNode, GraphSymbol, SymbolKind, SymbolRef } from '../../src/co
 // card's height before anything is drawn) and the card component use it, so they always agree.
 
 // Sizes in pixels. The card component applies exactly these, so the layout can rely on them.
-export const CARD_WIDTH = 300;
-export const HEADER_HEIGHT = 52;
-export const ROW_HEIGHT = 24;
-export const FOOTER_HEIGHT = 26;
+export const CARD_WIDTH = 340;
+export const HEADER_HEIGHT = 60;
+export const ROW_HEIGHT = 30;
+export const FOOTER_HEIGHT = 30;
 export const CARD_PADDING = 6;
 /** A changed file listing more rows than this is collapsed to its changed symbols. */
 export const COLLAPSE_ABOVE = 8;
