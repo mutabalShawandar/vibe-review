@@ -83,4 +83,12 @@ describe('folders view', () => {
     expect(foldersView.reveal(full, initial, 'web/card.tsx')).toBe(initial); // web is open already
     expect(foldersView.reveal(full, initial, 'unknown.ts')).toBe(initial); // not in the graph at all
   });
+
+  it('keeps every folder when several files are revealed one after another from the latest state', () => {
+    const three = graph('full', [...full.nodes, file('src/core/x.ts'), file('src/ui/y.ts')]);
+    const first = foldersView.reveal(three, initial, 'src/core/x.ts');
+    const both = foldersView.reveal(three, first, 'src/ui/y.ts');
+
+    expect([...groupingFor(three, both).open].sort()).toEqual(['src/core', 'src/ui', 'web']);
+  });
 });

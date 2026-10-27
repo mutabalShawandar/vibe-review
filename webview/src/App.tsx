@@ -265,10 +265,14 @@ function Graph({
       })),
     [renderer, graph],
   );
-  /** Make sure a file has a card (its folder may be closed), for the sidebar and for following edits. True if the view had to change. */
-  const showFile = useCallback(
-    (id: string) => {
-      const next = renderer.reveal(graph, viewState, id);
+  /**
+   * Make sure these files have cards (their folders may be closed), for the sidebar and for following edits.
+   * All of them are revealed in one state change, so opening several folders at once keeps every one.
+   * True if the view had to change.
+   */
+  const showFiles = useCallback(
+    (ids: readonly string[]) => {
+      const next = ids.reduce((state, id) => renderer.reveal(graph, state, id), viewState);
       if (next === viewState) {
         return false;
       }
@@ -580,8 +584,7 @@ function Graph({
       }
       const go = () => moveTo(follow === 'all' ? editingNow.current : files);
       // A file in a collapsed folder has no card: open the folder, and move once the new layout is on screen.
-      const opened = files.filter((file) => ids.has(file)).map((file) => showFile(file));
-      if (opened.some(Boolean)) {
+      if (showFiles(files.filter((file) => ids.has(file)))) {
         pendingFollow.current = [...(follow === 'all' ? editingNow.current : files)].reverse(); // moveTo wants the newest last
         return;
       }
@@ -590,7 +593,7 @@ function Graph({
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [graph, follow, moveTo, showFile]);
+  }, [graph, follow, moveTo, showFiles]);
 
   // "Resume follow": go where the agent is. Files being written right now, or else the last one written.
   useEffect(() => {
@@ -653,7 +656,7 @@ function Graph({
         features={features}
         onPick={(id) => {
           // A file in a closed folder has no card yet: open the folder, and the camera follows once its layout is on screen.
-          if (showFile(id)) {
+          if (showFiles([id])) {
             pendingFit.current = id;
           } else {
             void fitView({ nodes: [{ id }], duration: 400, maxZoom: 1, padding: 0.4 }); // bring the card into view
