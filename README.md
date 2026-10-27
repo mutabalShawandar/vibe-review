@@ -118,7 +118,7 @@ If something else goes wrong, open the **Output** panel and pick **Vibe Review**
 ## How it works
 
 1. **Changes** come from the git working tree (`git diff` plus untracked files), so any tool that writes files works. Nothing is specific to one agent.
-2. **Parsing** uses tree-sitter (WASM). Each language is a strategy in `src/languages/<language>/` that reports symbols, imports, and where imported names are used. The core never mentions a language.
+2. **Parsing** uses tree-sitter (WASM). Each language is a strategy in `src/languages/<language>/` that reports symbols, imports, and where imported names are used. The core never mentions a language. Frameworks are a second strategy in `src/frameworks/<framework>/`: they detect which project folders use the framework (so monorepos work) and label notable files, such as a Next.js page or API route, with a chip on the card.
 3. **The graph** is built in `src/core/`: import edges, symbol-to-symbol links, which symbols are relevant, and the review order (foundations first, then the files most others import).
 4. **The UI** is a React app (React Flow for drawing, elkjs for layout) in `webview/`. It only receives plain JSON, so it knows nothing about languages.
 
@@ -127,6 +127,7 @@ Usage detection is approximate: it matches imported names inside each symbol and
 ## Roadmap
 
 - [x] TypeScript, JavaScript and Next.js
+- [x] Framework strategies (Next.js first), so more frameworks can be added without touching the core
 - [x] Live refresh, follow mode, review order, editor marks
 - [ ] "Reviewed" checkmarks
 - [ ] Python and FastAPI
@@ -137,7 +138,7 @@ See [PLAN.md](PLAN.md) for the full design.
 
 ## Contributing
 
-Contributions are welcome, especially new languages. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. The short version: fork the repository, work on a branch, and open a pull request; a new language is one folder, registered in one line, with tests. Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
+Contributions are welcome, especially new languages and frameworks. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. The short version: fork the repository, work on a branch, and open a pull request; a new language is one folder, registered in one line, with tests. Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 Run the checks before opening a pull request:
 

@@ -50,6 +50,7 @@ src/
   core/          Language-agnostic. Types, the strategy interface, the registry, the graph builder.
   changes/       Reads git's view of the changes (git diff, untracked files).
   languages/     One folder per language, registered in languages/index.ts.
+  frameworks/    One folder per framework (Next.js...), registered in frameworks/index.ts.
   parser/        Loads tree-sitter grammars (WASM).
   workspace/     Scans the workspace, caches analysis, watches for file changes.
   ui/            The VS Code side of the panel: webview host, messages, status bar, editor marks.
@@ -60,7 +61,7 @@ test/            Unit tests with fixtures in test/fixtures/<language>/.
 
 Two rules keep this maintainable:
 
-- **`src/core/` never mentions a language.** If a feature seems to need that, the strategy interface needs to change; discuss it in an issue first.
+- **`src/core/` never mentions a language or a framework.** If a feature seems to need that, the strategy interface needs to change; discuss it in an issue first.
 - **The webview only receives plain JSON** (`GraphModel` in `src/core/types.ts`) and sends small messages back (`src/ui/messages.ts`). It never reads files or runs git.
 
 `PLAN.md` has the original design notes and the decisions behind it.
@@ -80,6 +81,20 @@ This is the contribution we want most. A language is one folder plus one line.
 4. **Register it** with one line in [`src/languages/index.ts`](src/languages/index.ts).
 5. **Test it.** Put fixture files in `test/fixtures/<lang>/` and write tests like `test/TypeScriptStrategy.test.ts` and `test/resolveImport.test.ts`: symbols with their lines, imports with their bindings, and import resolution.
 6. **Try it for real** with `npm run host` on a project in that language, and include a screenshot in the pull request.
+
+## Adding a framework
+
+A framework is not a language: Next.js and Express are both TypeScript, and one workspace can hold several projects. So frameworks are a separate strategy that only labels files; the language strategy still does the parsing. Like a language, it is one folder plus one line.
+
+1. **Create `src/frameworks/<name>/<Name>Strategy.ts`** implementing `FrameworkStrategy` (see [`src/core/FrameworkStrategy.ts`](src/core/FrameworkStrategy.ts)):
+   - `id`: e.g. `nextjs`.
+   - `detect(ctx, files)`: return the project folders that use the framework, `""` for the workspace root. `files` is every file git knows, so no directory walk is needed; read config files such as `package.json` or `pyproject.toml` through `ctx.readFile`. Return `[]` when the framework is not used.
+   - `entryPoint(path)`: the label for a notable file, or `undefined` for an ordinary one. `path` is relative to the project folder `detect` returned, so the rules work wherever the project lives.
+2. **Register it** with one line in [`src/frameworks/index.ts`](src/frameworks/index.ts).
+3. **Test it** like `test/frameworks.test.ts`: detection (root, monorepo, invalid config) and the label of each kind of file, including files that must stay unlabeled.
+4. **Try it for real** with `npm run host` on a project that uses the framework.
+
+If several frameworks are detected, a file is judged by the deepest project folder that contains it; within one folder, the first registered framework with a label for the file wins.
 
 ## Working on the webview
 

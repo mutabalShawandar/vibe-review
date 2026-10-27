@@ -17,5 +17,7 @@ First alpha. TypeScript, JavaScript and Next.js projects.
 - `npm run install:vscode` builds a `.vsix` and installs it into your normal VS Code, and the README has an install and quick start guide.
 - A `Ctrl+Shift+B` task that opens the development window without a debugger (avoids the F5 "extension host did not start in 10 seconds" error).
 
+- Frameworks are a second strategy next to languages (`FrameworkStrategy`, registered in `src/frameworks/index.ts`). A framework finds the project folders that use it (so monorepos work) and labels notable files. Next.js is the first one: App Router files (page, layout, route handler, loading, error, not-found, template, default), Pages Router files (page, API route, `_app`, `_document`), middleware/proxy/instrumentation and `next.config` get a chip on their card.
+
 ### Changed
 - Bigger text and cards, higher contrast for secondary text, thicker arrows and larger connection points, so the diagram is easier to read.
