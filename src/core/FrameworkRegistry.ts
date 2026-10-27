@@ -1,10 +1,13 @@
 import type { FrameworkStrategy } from './FrameworkStrategy';
 import type { ResolveContext } from './LanguageStrategy';
+import type { FileRole } from './types';
 
 /** What the frameworks know about one workspace file. */
 export interface FileClassification {
   /** The role label, e.g. "Next.js page". */
   entryPoint?: string;
+  /** What the file is for, in the words every framework shares. */
+  role?: FileRole;
   /** The URL the file belongs to, when its framework routes by file. */
   route?: string;
   /** The project folder the framework was detected in ("" for the workspace root), so equal routes of two projects stay apart. */
@@ -62,8 +65,14 @@ export class FrameworkRegistry {
         closest = root;
         const entryPoint = strategy.entryPoint(inside);
         if (entryPoint) {
+          const role = strategy.role?.(inside);
           const route = strategy.route?.(inside);
-          return { entryPoint, ...(route !== undefined ? { route } : {}), project: root };
+          return {
+            entryPoint,
+            ...(role ? { role } : {}),
+            ...(route !== undefined ? { route } : {}),
+            project: root,
+          };
         }
       }
       return undefined;

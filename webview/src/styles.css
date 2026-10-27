@@ -741,3 +741,38 @@ body {
   border: none;
   background: var(--vr-line);
 }
+
+/* Framework roles: the same color for the same job in every framework (a Next.js layout and a FastAPI router alike). */
+.role-page {
+  --role-color: var(--vscode-charts-blue, #3794ff);
+}
+.role-layout {
+  --role-color: var(--vscode-charts-purple, #b180d7);
+}
+.role-api {
+  --role-color: var(--vscode-charts-green, #89d185);
+}
+.role-boundary {
+  --role-color: var(--vscode-charts-orange, #d18616);
+}
+.role-middleware {
+  --role-color: var(--vscode-charts-red, #f14c4c);
+}
+.role-config {
+  --role-color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+.chip-entry[class*='role-'] {
+  border-color: var(--role-color);
+  color: var(--role-color);
+}
+.route-card__row[class*='role-'] {
+  box-shadow: inset 3px 0 0 var(--role-color);
+}
+.route-card__row[class*='role-'] .route-card__role {
+  color: var(--role-color);
+  opacity: 1;
+}
+.file-card__header[class*='role-'],
+.route-card__header[class*='role-'] {
+  background: color-mix(in srgb, var(--role-color) 14%, transparent);
+}

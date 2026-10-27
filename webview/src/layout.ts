@@ -1,6 +1,6 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js';
-import type { GraphModel, GraphNode } from '../../src/core/types';
+import type { FileRole, GraphModel, GraphNode } from '../../src/core/types';
 import { buildCard, CARD_WIDTH, cardHeight, FILE_PORT, portKey, visiblePort, type Card } from './card';
 import type { Group } from './groups';
 import { computeFeatures } from './review';
@@ -40,6 +40,8 @@ export interface RouteData extends Record<string, unknown> {
   path?: string;
   /** The project folder, shown when the workspace has more than one project. */
   project?: string;
+  /** The role that tints the card: the one that says most about what the route is (a page, else an API...). */
+  role?: FileRole;
   /** The files listed as rows, in the order a request meets them. */
   files: GraphNode[];
   /** Files that are not listed (the card of files outside every route lists only what matters to a review). */

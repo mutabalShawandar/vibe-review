@@ -88,6 +88,7 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
         status === 'changed' ? 'all' : (relevantSymbols.get(file.path) ?? new Set()),
       ),
       ...(file.entryPoint ? { entryPoint: file.entryPoint } : {}),
+      ...(file.role ? { role: file.role } : {}),
       ...(file.route !== undefined ? { route: file.route } : {}),
       ...(file.project !== undefined ? { project: file.project } : {}),
     });

@@ -130,6 +130,7 @@ export class WorkspaceAnalyzer {
         symbols: info.symbols,
         imports,
         ...(entryPoint ? { entryPoint } : {}),
+        ...(framework?.role ? { role: framework.role } : {}),
         ...(framework?.route !== undefined ? { route: framework.route } : {}),
         ...(framework ? { project: framework.project } : {}),
       };

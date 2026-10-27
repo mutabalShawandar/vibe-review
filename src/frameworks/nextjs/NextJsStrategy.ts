@@ -1,5 +1,6 @@
 import type { FrameworkStrategy } from '../../core/FrameworkStrategy';
 import type { ResolveContext } from '../../core/LanguageStrategy';
+import type { FileRole } from '../../core/types';
 
 const CODE = '(?:tsx?|jsx?|mjs|cjs|mts|cts)';
 
@@ -55,6 +56,26 @@ function urlOf(folders: string[]): string | undefined {
   return `/${segments.join('/')}`;
 }
 
+// What each label means in the words every framework shares.
+const ROLE_OF_LABEL: Record<string, FileRole> = {
+  'Next.js page': 'page',
+  'Next.js layout': 'layout',
+  'Next.js template': 'layout',
+  'Next.js app wrapper': 'layout',
+  'Next.js document': 'layout',
+  'Next.js route handler': 'api',
+  'Next.js API route': 'api',
+  'Next.js loading UI': 'boundary',
+  'Next.js error boundary': 'boundary',
+  'Next.js error page': 'boundary',
+  'Next.js not-found page': 'boundary',
+  'Next.js parallel route fallback': 'boundary',
+  'Next.js middleware': 'middleware',
+  'Next.js proxy': 'middleware',
+  'Next.js instrumentation': 'middleware',
+  'Next.js config': 'config',
+};
+
 const CONFIG_FILE = /^next\.config\.(?:js|mjs|cjs|ts|mts)$/i;
 
 /** Next.js, both the App Router (app/) and the Pages Router (pages/). */
@@ -72,6 +93,11 @@ export class NextJsStrategy implements FrameworkStrategy {
       }
     }
     return roots;
+  }
+
+  role(path: string): FileRole | undefined {
+    const label = this.entryPoint(path);
+    return label ? ROLE_OF_LABEL[label] : undefined;
   }
 
   route(path: string): string | undefined {

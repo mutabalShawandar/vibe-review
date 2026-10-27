@@ -1,6 +1,6 @@
 import { MarkerType, type Edge } from '@xyflow/react';
 import ELK from 'elkjs/lib/elk.bundled.js';
-import type { GraphModel, GraphNode } from '../../../src/core/types';
+import type { FileRole, GraphModel, GraphNode } from '../../../src/core/types';
 import { ROW_HEIGHT } from '../card';
 import type { RouteFlowNode } from '../layout';
 import { ancestorsOf, buildRouteTree, OTHER_ID, routeOfFile, visibleRoutes, type RouteNode, type RouteTree } from '../routes';
@@ -14,6 +14,13 @@ export const ROUTE_HEADER = 52;
 const ROUTE_PADDING = 6;
 /** The card of files outside every route lists at most this many of the files that matter to a review. */
 const OTHER_ROWS = 8;
+
+// Which role says most about a route, first to last: a route that has a page is a page, one with only a handler is an API.
+const ROLE_PRIORITY: readonly FileRole[] = ['page', 'api', 'layout', 'boundary', 'middleware', 'config'];
+
+/** The role that tints a route's card, or undefined when none of its files has one. */
+export const mainRole = (files: readonly GraphNode[]): FileRole | undefined =>
+  ROLE_PRIORITY.find((role) => files.some((file) => file.role === role));
 
 const treeOf = (graph: GraphModel): RouteTree => buildRouteTree(graph.nodes);
 const hasRoutes = (graph: GraphModel) => graph.nodes.some((node) => node.route !== undefined);
@@ -115,6 +122,7 @@ function routeCard(route: RouteNode, collapsed: CollapsedRoutes, showProject: bo
     data: {
       title: route.segment,
       path: route.route,
+      ...(mainRole(route.files) ? { role: mainRole(route.files) } : {}),
       ...(showProject ? { project: route.project || '(root)' } : {}),
       files: route.files,
       hiddenFiles: 0,

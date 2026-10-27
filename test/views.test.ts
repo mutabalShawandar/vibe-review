@@ -4,7 +4,7 @@ import { groupNodeId } from '../webview/src/layout';
 import { filesView } from '../webview/src/views/filesView';
 import { foldersView, groupingFor } from '../webview/src/views/foldersView';
 import { rendererFor, viewKindFor, viewsFor } from '../webview/src/views';
-import { routesView } from '../webview/src/views/routesView';
+import { mainRole, routesView } from '../webview/src/views/routesView';
 import { OTHER_ID, routeNodeId } from '../webview/src/routes';
 
 const file = (id: string, status: GraphNode['status'] = 'unchanged'): GraphNode => ({ id, language: 'typescript', status, symbols: [] });
@@ -172,5 +172,20 @@ describe('routes view', () => {
     expect(routesView.nodeFor(g, 'app/users/page.tsx')).toBe(id('/users'));
     expect(routesView.nodeFor(g, 'lib/db.ts')).toBe(OTHER_ID);
     expect(routesView.nodeFor(g, 'unknown.ts')).toBe('unknown.ts');
+  });
+});
+
+describe('mainRole', () => {
+  const withRole = (role: GraphNode['role']): GraphNode => ({ ...file('x.ts'), ...(role ? { role } : {}) });
+
+  it('picks the role that says most about a route', () => {
+    expect(mainRole([withRole('layout'), withRole('page'), withRole('boundary')])).toBe('page');
+    expect(mainRole([withRole('layout'), withRole('api')])).toBe('api');
+    expect(mainRole([withRole('boundary'), withRole('layout')])).toBe('layout');
+  });
+
+  it('is undefined when no file has a role', () => {
+    expect(mainRole([withRole(undefined)])).toBeUndefined();
+    expect(mainRole([])).toBeUndefined();
   });
 });

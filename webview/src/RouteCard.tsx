@@ -12,14 +12,14 @@ import { ROUTE_HEADER } from './views/routesView';
  */
 export function RouteCard({ id, data }: NodeProps<RouteFlowNode>) {
   const { toggleNode, open } = useContext(CardActions);
-  const { title, path, project, files, hiddenFiles, fold, changedCount } = data;
+  const { title, path, role, project, files, hiddenFiles, fold, changedCount } = data;
 
   return (
     <div className={`route-card${changedCount > 0 ? ' has-changes' : ''}`}>
       <Handle id="in" type="target" position={Position.Left} />
       <Handle id="out" type="source" position={Position.Right} />
       <header
-        className={`route-card__header${fold ? ' is-foldable' : ''}`}
+        className={`route-card__header${fold ? ' is-foldable' : ''}${role ? ` role-${role}` : ''}`}
         style={{ height: ROUTE_HEADER }}
         title={[path, fold && (fold.collapsed ? 'click to show the routes below' : 'click to hide the routes below')].filter(Boolean).join(': ') || undefined}
         onClick={() => fold && toggleNode(id)}
@@ -36,7 +36,7 @@ export function RouteCard({ id, data }: NodeProps<RouteFlowNode>) {
       {files.map((file) => (
         <div
           key={file.id}
-          className={`route-card__row status-${file.status}`}
+          className={`route-card__row status-${file.status}${file.role ? ` role-${file.role}` : ''}`}
           style={{ height: ROW_HEIGHT }}
           title={file.id}
           onClick={() => open(file.id)}

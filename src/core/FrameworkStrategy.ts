@@ -1,4 +1,5 @@
 import type { ResolveContext } from './LanguageStrategy';
+import type { FileRole } from './types';
 
 /**
  * Everything the core needs to know about one framework (Next.js, FastAPI, Express...).
@@ -31,6 +32,12 @@ export interface FrameworkStrategy {
    * wherever the project lives. Example: "src/app/users/page.tsx" -> "Next.js page".
    */
   entryPoint(path: string): string | undefined;
+
+  /**
+   * Optional. What a labeled file is for, in the words every framework shares (see FileRole), so the
+   * diagram can color a Next.js layout and a FastAPI router the same way. `path` is relative to the project folder.
+   */
+  role?(path: string): FileRole | undefined;
 
   /**
    * Optional, for frameworks that turn files into URLs. The route a labeled file belongs to, as a

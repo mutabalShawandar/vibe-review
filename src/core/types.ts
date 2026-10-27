@@ -7,6 +7,18 @@ import type { Tree } from 'web-tree-sitter';
 // --- What a strategy reads out of ONE file ----------------------------------------
 
 /**
+ * What a file is for in its framework, in words every framework shares so the UI can color them
+ * without knowing any framework:
+ *   page       - a screen the user visits
+ *   layout     - shared structure around pages (layouts, templates, app wrappers)
+ *   api        - code that answers requests (route handlers, API routes, endpoints)
+ *   boundary   - what shows while loading or when something fails (loading, error, not-found)
+ *   middleware - code that runs before a request is handled
+ *   config     - the framework's own configuration
+ */
+export type FileRole = 'page' | 'layout' | 'api' | 'boundary' | 'middleware' | 'config';
+
+/**
  * The kinds of declarations we show inside a file card.
  *   method, property - members inside a class or interface
  *   component        - a UI component (e.g. a React function that returns JSX)
@@ -111,6 +123,8 @@ export interface AnalyzedFile {
   imports: ResolvedImport[];
   /** Set by the strategy for notable files, e.g. "Next.js page". */
   entryPoint?: string;
+  /** What the file is for in its framework. Set together with `entryPoint` by frameworks that can say. */
+  role?: FileRole;
   /** The URL the file belongs to ("/users/[id]"), set by a framework that routes by file. */
   route?: string;
   /** The project folder of the framework that classified the file ("" for the workspace root). Set together with `entryPoint`. */
@@ -179,6 +193,8 @@ export interface GraphNode {
   symbols: GraphSymbol[];
   /** Set by the strategy for notable files, e.g. "Next.js page", "FastAPI router". */
   entryPoint?: string;
+  /** What the file is for in its framework, so the diagram can color it. */
+  role?: FileRole;
   /** The URL the file belongs to ("/users/[id]"), for frameworks that route by file. */
   route?: string;
   /** The project folder of the framework that classified the file ("" for the workspace root). */

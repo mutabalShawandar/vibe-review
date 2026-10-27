@@ -295,12 +295,13 @@ describe('entry points', () => {
 
   it('carries the route and project of a file, and nothing for ordinary files', () => {
     const files: AnalyzedFile[] = [
-      { ...file('app/users/page.tsx'), entryPoint: 'Next.js page', route: '/users', project: '' },
+      { ...file('app/users/page.tsx'), entryPoint: 'Next.js page', role: 'page', route: '/users', project: '' },
       file('util.ts'),
     ];
     const { nodes } = buildGraph(files, [], 'full');
 
-    expect(nodes.find((n) => n.id === 'app/users/page.tsx')).toMatchObject({ route: '/users', project: '' });
+    expect(nodes.find((n) => n.id === 'app/users/page.tsx')).toMatchObject({ role: 'page', route: '/users', project: '' });
+    expect('role' in nodes.find((n) => n.id === 'util.ts')!).toBe(false);
     expect('route' in nodes.find((n) => n.id === 'util.ts')!).toBe(false);
     expect('project' in nodes.find((n) => n.id === 'util.ts')!).toBe(false);
   });

@@ -58,7 +58,7 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
   return (
     <div className={`file-card status-${node.status}${fresh ? ' is-fresh' : ''}${editing ? ' is-editing' : ''}`} style={{ width: CARD_WIDTH }} onMouseLeave={blur}>
       <header
-        className="file-card__header"
+        className={`file-card__header${node.role ? ` role-${node.role}` : ''}`}
         style={{ height: HEADER_HEIGHT }}
         title={node.id}
         onMouseEnter={() => focus(id)}
@@ -85,7 +85,7 @@ export function FileCard({ id, data }: NodeProps<FileCardNode>) {
             </span>
           )}
           {review?.order === 1 && <span className="chip chip-start">start here</span>}
-          {node.entryPoint && <span className="chip chip-entry">{node.entryPoint}</span>}
+          {node.entryPoint && <span className={`chip chip-entry${node.role ? ` role-${node.role}` : ''}`}>{node.entryPoint}</span>}
         </div>
         {folder && <div className="file-card__folder">{folder}</div>}
       </header>

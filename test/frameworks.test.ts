@@ -111,6 +111,48 @@ describe('FrameworkRegistry', () => {
   });
 });
 
+describe('NextJsStrategy.role', () => {
+  const role = (path: string) => new NextJsStrategy().role(path);
+
+  it.each([
+    ['app/page.tsx', 'page'],
+    ['pages/index.tsx', 'page'],
+    ['app/layout.tsx', 'layout'],
+    ['app/users/template.tsx', 'layout'],
+    ['pages/_app.tsx', 'layout'],
+    ['pages/_document.tsx', 'layout'],
+    ['app/api/users/route.ts', 'api'],
+    ['pages/api/users.ts', 'api'],
+    ['app/loading.tsx', 'boundary'],
+    ['app/error.tsx', 'boundary'],
+    ['app/not-found.tsx', 'boundary'],
+    ['app/@modal/default.tsx', 'boundary'],
+    ['middleware.ts', 'middleware'],
+    ['proxy.ts', 'middleware'],
+    ['instrumentation.ts', 'middleware'],
+    ['next.config.mjs', 'config'],
+  ])('%s is a %s', (path, expected) => {
+    expect(role(path)).toBe(expected);
+  });
+
+  it('has no role for an ordinary file', () => {
+    expect(role('lib/db.ts')).toBeUndefined();
+    expect(role('app/components/Button.tsx')).toBeUndefined();
+  });
+
+  it('gives every label the strategy can produce a role', () => {
+    const paths = [
+      'app/page.tsx', 'app/layout.tsx', 'app/api/x/route.ts', 'app/loading.tsx', 'app/error.tsx', 'app/global-error.tsx',
+      'app/not-found.tsx', 'app/template.tsx', 'app/@s/default.tsx', 'pages/a.tsx', 'pages/api/a.ts', 'pages/_app.tsx',
+      'pages/_document.tsx', 'pages/_error.tsx', 'middleware.ts', 'proxy.ts', 'instrumentation.ts', 'next.config.ts',
+    ];
+    for (const path of paths) {
+      expect(new NextJsStrategy().entryPoint(path), path).toBeDefined();
+      expect(role(path), `${path} has a label but no role`).toBeDefined();
+    }
+  });
+});
+
 describe('NextJsStrategy.route', () => {
   const route = (path: string) => new NextJsStrategy().route(path);
 
@@ -157,11 +199,12 @@ describe('FrameworkRegistry classification', () => {
 
     expect(classify('apps/web/app/users/[id]/page.tsx')).toEqual({
       entryPoint: 'Next.js page',
+      role: 'page',
       route: '/users/[id]',
       project: 'apps/web',
     });
     // labeled, but not a route
-    expect(classify('apps/web/middleware.ts')).toEqual({ entryPoint: 'Next.js middleware', project: 'apps/web' });
+    expect(classify('apps/web/middleware.ts')).toEqual({ entryPoint: 'Next.js middleware', role: 'middleware', project: 'apps/web' });
     expect(classify('apps/web/lib/db.ts')).toBeUndefined();
   });
 });
