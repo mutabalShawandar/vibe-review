@@ -3,16 +3,16 @@ import type { Edge } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphModel, GraphScope } from '../../src/core/types';
 import type { HostMessage } from '../../src/ui/messages';
-import { CardActions, FileCard } from './FileCard';
+import { CardActions } from './FileCard';
 import type { RowMark } from './layout';
 import { computeRoute, editorMarks, rangeOf } from './route';
 import { CARD_WIDTH, splitPath } from './card';
-import { absolutePosition, layoutGraph, type FlowNode, type Grouping } from './layout';
-import { GroupBox, GroupCard } from './GroupCard';
-import { groupNodes } from './groups';
+import { absolutePosition, type FlowNode } from './layout';
+import { nodeTypes } from './views/nodeTypes';
+import { rendererFor, viewKindFor } from './views';
 import { freshSince, type Fresh } from './fresh';
 import { computeFeatures } from './review';
-import { PLACEHOLDER_HEIGHT, PlaceholderCard, type PlaceholderNode } from './PlaceholderCard';
+import { PLACEHOLDER_HEIGHT, type PlaceholderNode } from './PlaceholderCard';
 import { Sidebar } from './Sidebar';
 import { vscode } from './vscode';
 
@@ -24,9 +24,6 @@ type State =
 
 /** How the view follows live edits: `latest` zooms in on the file being edited, `all` fits every file edited, `off` stays put. */
 type FollowMode = 'latest' | 'all' | 'off';
-
-// The kinds of node React Flow may draw. Defined once, outside the component, or React Flow would re-create every node on each render.
-const nodeTypes = { fileCard: FileCard, placeholder: PlaceholderCard, groupCard: GroupCard, groupBox: GroupBox };
 
 export function App() {
   const [state, setState] = useState<State>({ kind: 'loading', message: 'Starting...' });
@@ -256,32 +253,29 @@ function Graph({
   // Cards the user opened to see every symbol. Each change needs a new layout: cards change height.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
-  // Full System draws files inside folder boxes. A box is open when it holds a changed file, unless the reader chose otherwise.
-  const groups = useMemo(() => (graph.scope === 'full' ? groupNodes(graph.nodes) : undefined), [graph]);
-  const [groupChoice, setGroupChoice] = useState<ReadonlyMap<string, boolean>>(new Map());
-  const grouping = useMemo((): Grouping | undefined => {
-    if (!groups) {
-      return undefined;
-    }
-    const changed = new Set(graph.nodes.filter((node) => node.status === 'changed').map((node) => node.id));
-    const open = groups.filter((group) => groupChoice.get(group.key) ?? group.ids.some((id) => changed.has(id)));
-    return { groups, open: new Set(open.map((group) => group.key)) };
-  }, [groups, groupChoice, graph]);
-  const toggleGroup = useCallback(
-    (key: string) => setGroupChoice((previous) => new Map(previous).set(key, !grouping?.open.has(key))),
-    [grouping],
+  // The active view decides where everything goes. What the reader changed in it (open folders...) is its state.
+  const renderer = useMemo(() => rendererFor(viewKindFor(graph)), [graph.scope]); // eslint-disable-line react-hooks/exhaustive-deps -- the view depends only on the scope
+  const [viewStates, setViewStates] = useState<Readonly<Record<string, unknown>>>({});
+  const viewState = viewStates[renderer.kind] ?? renderer.initialState;
+  const toggleNode = useCallback(
+    (nodeId: string) =>
+      setViewStates((previous) => ({
+        ...previous,
+        [renderer.kind]: renderer.toggleNode(graph, previous[renderer.kind] ?? renderer.initialState, nodeId),
+      })),
+    [renderer, graph],
   );
-  /** Make sure a file's folder is open so its card exists (for the sidebar and for following edits). */
+  /** Make sure a file has a card (its folder may be closed), for the sidebar and for following edits. True if the view had to change. */
   const showFile = useCallback(
     (id: string) => {
-      const group = groups?.find((candidate) => candidate.ids.includes(id));
-      if (group && !grouping?.open.has(group.key)) {
-        setGroupChoice((previous) => new Map(previous).set(group.key, true));
-        return true;
+      const next = renderer.reveal(graph, viewState, id);
+      if (next === viewState) {
+        return false;
       }
-      return false;
+      setViewStates((previous) => ({ ...previous, [renderer.kind]: next }));
+      return true;
     },
-    [groups, grouping],
+    [renderer, graph, viewState],
   );
 
   // In the full view every card is open. Collapsing one leaves the full view and keeps the others open.
@@ -325,7 +319,7 @@ function Graph({
     },
     [graph, elements],
   );
-  const actions = useMemo(() => ({ toggle, focus, blur, open, toggleGroup }), [toggle, focus, blur, open, toggleGroup]);
+  const actions = useMemo(() => ({ toggle, focus, blur, open, toggleNode }), [toggle, focus, blur, open, toggleNode]);
 
   // A link in the editor hover asked to walk to another symbol of the route.
   useEffect(() => {
@@ -637,14 +631,14 @@ function Graph({
   // stays on screen while a new one is computed, so expanding a card does not blank the graph.
   useEffect(() => {
     let cancelled = false; // a newer request may arrive before this layout finishes
-    layoutGraph(graph, shown, grouping).then(
+    renderer.layout(graph, shown, viewState).then(
       (result) => !cancelled && setElements(result),
       (error) => console.error('Layout failed', error),
     );
     return () => {
       cancelled = true;
     };
-  }, [graph, shown, grouping]);
+  }, [renderer, graph, shown, viewState]);
 
   if (!elements) {
     return <p className="message">Laying out {graph.nodes.length} files...</p>;
