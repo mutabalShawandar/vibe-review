@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createFrameworkRegistry } from '../src/frameworks';
 import { createRegistry } from '../src/languages';
 import { ParserLoader } from '../src/parser/ParserLoader';
 import { WorkspaceAnalyzer } from '../src/workspace/WorkspaceAnalyzer';
@@ -34,7 +35,7 @@ afterEach(() => {
   }
 });
 
-const analyzer = () => new WorkspaceAnalyzer(dir, createRegistry(), parser);
+const analyzer = () => new WorkspaceAnalyzer(dir, createRegistry(), parser, createFrameworkRegistry());
 
 describe('WorkspaceAnalyzer', () => {
   it('analyzes code files and resolves imports between them', async () => {
@@ -52,6 +53,18 @@ describe('WorkspaceAnalyzer', () => {
     ]); // "react" is external
     expect(byPath['src/page.tsx'].symbols.map((s) => s.name)).toEqual(['Page']);
     expect(byPath['src/lib/db.ts'].language).toBe('typescript');
+  });
+
+  it('labels Next.js entry points in a detected project', async () => {
+    write('package.json', '{ "dependencies": { "next": "15.0.0" } }');
+    write('src/app/page.tsx', 'export default function Page() {}\n');
+    write('src/lib/db.ts', 'export const db = 1;\n');
+
+    const { files } = await analyzer().analyze();
+    const byPath = Object.fromEntries(files.map((f) => [f.path, f]));
+
+    expect(byPath['src/app/page.tsx'].entryPoint).toBe('Next.js page');
+    expect('entryPoint' in byPath['src/lib/db.ts']).toBe(false);
   });
 
   it('ignores files without a strategy and anything in .gitignore', async () => {

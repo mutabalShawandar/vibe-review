@@ -1,5 +1,6 @@
 import { promises as fs, readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import type { FrameworkRegistry } from '../core/FrameworkRegistry';
 import type { ResolveContext } from '../core/LanguageStrategy';
 import type { StrategyRegistry } from '../core/StrategyRegistry';
 import type { AnalyzedFile, ImportBinding, ImportRef, ResolvedImport, SymbolInfo } from '../core/types';
@@ -52,6 +53,7 @@ export class WorkspaceAnalyzer {
     private readonly root: string,
     private readonly registry: StrategyRegistry,
     private readonly parser: ParserLoader,
+    private readonly frameworks: FrameworkRegistry,
   ) {}
 
   async analyze(onProgress?: (done: number, total: number) => void): Promise<AnalysisResult> {
@@ -99,6 +101,8 @@ export class WorkspaceAnalyzer {
     // Resolution runs on every scan (it is cheap) because it depends on the whole file set.
     const resolveStart = Date.now();
     const context = this.resolveContext(new Set(listed));
+    // Frameworks are detected per scan, like resolution: they depend on package.json and the file set.
+    const frameworkLabel = this.frameworks.labeler(context, listed);
     const files = [...parsed].map(([file, info]): AnalyzedFile => {
       const strategy = this.registry.forId(info.language)!;
       // One entry per target file: a file imported by two statements gets both their names.
@@ -117,12 +121,14 @@ export class WorkspaceAnalyzer {
         byTarget.set(target, entry);
       }
       const imports = [...byTarget.values()].sort((a, b) => a.file.localeCompare(b.file));
+      // The framework knows more than the language ("Next.js page" vs. nothing), so it goes first.
+      const entryPoint = frameworkLabel(file) ?? info.entryPoint;
       return {
         path: file,
         language: info.language,
         symbols: info.symbols,
         imports,
-        ...(info.entryPoint ? { entryPoint: info.entryPoint } : {}),
+        ...(entryPoint ? { entryPoint } : {}),
       };
     });
 
