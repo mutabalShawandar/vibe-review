@@ -24,7 +24,7 @@ Hovering the marked code shows what the symbol uses and what uses it. Each name 
 
 ## What you get
 
-- **A diagram of what changed.** Changed files plus the files they use and the files that use them. A *Full system* view shows the whole workspace.
+- **A diagram of what changed.** Changed files plus the files they use and the files that use them. A *Full system* view shows the whole workspace, grouped into folder boxes: folders with changes are open, the others are collapsed into one card that you click to open.
 - **Where to start.** The changed files are grouped into *features* (files that import each other). Each feature has its own reading order, a "start here" mark, numbered badges, and a one-line reason per file. Foundations come first.
 - **Hover to see a route.** Hover a card or a symbol to light up everything it uses and everything that uses it, however many steps away. Rows that a collapsed card hides are shown while you hover.
 - **Click to read the code.** Clicking a symbol opens the file beside the graph on the first changed line, with the symbol, the changed lines and the exact words that depend on it marked, each with a short label.
@@ -94,7 +94,7 @@ npm run host -- "path/to/the/project/you/want/to/review"
 - **Hover to see connections.** Hover a card or a symbol to light up everything it uses (blue) and everything that uses it (orange), however many steps away.
 - **Click to read the code.** Clicking a symbol opens its file beside the graph on the first changed line. The symbol is purple, changed lines are green, and the exact words that depend on it are marked with a short label. Hover the marked code and click a name to jump along the route.
 - **Let it follow the agent.** While files are written, their cards glow with an *editing* chip, a file that is not in the diagram yet gets a placeholder card, and the view moves along. Panning or zooming yourself pauses this; **Resume follow** takes you to the file being edited, or the last one that was.
-- **The toolbar.** *Changes* shows what changed and its neighbors, *Full system* shows every file. *Full view* opens every card (big changed files are collapsed to what changed). *Follow* chooses how the view follows edits: zoom to the edited file, fit all edited files, or off.
+- **The toolbar.** *Changes* shows what changed and its neighbors, *Full system* shows every file, grouped into one box per folder (a folder with a changed file starts open; click a box to open or close it). *Full view* opens every card (big changed files are collapsed to what changed). *Follow* chooses how the view follows edits: zoom to the edited file, fit all edited files, or off.
 
 ### Other ways to run it
 
@@ -120,7 +120,7 @@ If something else goes wrong, open the **Output** panel and pick **Vibe Review**
 1. **Changes** come from the git working tree (`git diff` plus untracked files), so any tool that writes files works. Nothing is specific to one agent.
 2. **Parsing** uses tree-sitter (WASM). Each language is a strategy in `src/languages/<language>/` that reports symbols, imports, and where imported names are used. The core never mentions a language. Frameworks are a second strategy in `src/frameworks/<framework>/`: they detect which project folders use the framework (so monorepos work) and label notable files, such as a Next.js page or API route, with a chip on the card.
 3. **The graph** is built in `src/core/`: import edges, symbol-to-symbol links, which symbols are relevant, and the review order (foundations first, then the files most others import).
-4. **The UI** is a React app (React Flow for drawing, elkjs for layout) in `webview/`. It only receives plain JSON, so it knows nothing about languages.
+4. **The UI** is a React app (React Flow for drawing, elkjs for layout) in `webview/`. In Full System, `webview/src/groups.ts` puts files into folder boxes and `layout.ts` lays the boxes out, then the files inside each open box. It only receives plain JSON, so it knows nothing about languages.
 
 Usage detection is approximate: it matches imported names inside each symbol and does not model shadowing or dynamic access.
 

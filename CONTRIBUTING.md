@@ -98,7 +98,7 @@ If several frameworks are detected, a file is judged by the deepest project fold
 
 ## Working on the webview
 
-The graph, sidebar and cards live in `webview/src/`. Pure logic (grouping, routes, what's fresh, card rows) is in plain `.ts` files and is unit-tested (`test/route.test.ts`, `test/review.test.ts`, `test/card.test.ts`...). Keep it that way: logic in a testable function, rendering in the component. Colors come from VS Code theme variables (`--vscode-*`) so every theme works; check your change in a light and a dark theme.
+The graph, sidebar and cards live in `webview/src/`. Pure logic (folder boxes in `groups.ts`, routes, what's fresh, card rows) is in plain `.ts` files and is unit-tested (`test/groups.test.ts`, `test/layout.test.ts`, `test/route.test.ts`, `test/review.test.ts`, `test/card.test.ts`...). Keep it that way: logic in a testable function, rendering in the component. Colors come from VS Code theme variables (`--vscode-*`) so every theme works; check your change in a light and a dark theme.
 
 ## Picking an issue
 
