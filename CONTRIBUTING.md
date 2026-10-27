@@ -96,6 +96,21 @@ A framework is not a language: Next.js and Express are both TypeScript, and one 
 
 If several frameworks are detected, a file is judged by the deepest project folder that contains it; within one folder, the first registered framework with a label for the file wins.
 
+## Adding a view
+
+A view is one way of drawing the graph: Changes shows one card per file, Full System puts files in folder boxes. The app asks the active view where everything goes and never looks at what a node stands for.
+
+1. **Create `webview/src/views/<name>View.ts`** implementing `ViewRenderer` (see [`webview/src/views/ViewRenderer.ts`](webview/src/views/ViewRenderer.ts)):
+   - `kind` and `initialState`: the id, and what the view remembers about the reader's choices (open folders, folded branches) before they change anything.
+   - `layout(graph, expanded, state)`: the nodes with positions and the arrows between them.
+   - `toggleNode(graph, state, nodeId)`: a click on a node that stands for several files; return the new state.
+   - `reveal(graph, state, fileId)`: make a file's card exist (the sidebar and the follow mode need it); return the same `state` object if it is visible already.
+   Keep it to pure functions with no React, so every transition is unit tested.
+2. **Draw its nodes.** Every node `type` the view emits needs a component in [`webview/src/views/nodeTypes.ts`](webview/src/views/nodeTypes.ts).
+3. **Register it** with one line in [`webview/src/views/index.ts`](webview/src/views/index.ts), and choose when it is used in `viewKindFor`.
+4. **Test it** like `test/views.test.ts`: the layout, each state transition, and that nothing changes when nothing should.
+5. **Look at it** on a real project (`npm run host`), in a light and a dark theme.
+
 ## Working on the webview
 
 The graph, sidebar and cards live in `webview/src/`. Pure logic (folder boxes in `groups.ts`, routes, what's fresh, card rows) is in plain `.ts` files and is unit-tested (`test/groups.test.ts`, `test/layout.test.ts`, `test/route.test.ts`, `test/review.test.ts`, `test/card.test.ts`...). Keep it that way: logic in a testable function, rendering in the component. Colors come from VS Code theme variables (`--vscode-*`) so every theme works; check your change in a light and a dark theme.

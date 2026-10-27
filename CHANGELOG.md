@@ -13,6 +13,7 @@ Changes are listed under the day they landed, newest first. There is no tagged r
 - Full System groups files into folder boxes, one per parent folder (`web/components` and `admin/components` stay separate; a label gets enough of the path to tell same-named folders apart). A folder with a changed file is open as a frame around its file cards; the others are collapsed into one small card with the file count and the number of changed files. Click a box to open or close it. Arrows that reach a collapsed folder end at its card, and arrows between the same two ends are merged, so the overview shows a few dozen arrows instead of one per symbol link. The Changes view is not grouped. Picking a file in the sidebar opens its folder first.
 
 #### Changed
+- Views are pluggable. A `ViewRenderer` (`webview/src/views/`) says where everything goes for one way of drawing the graph, keeps the reader's choices (which folders are open) as plain state, and is made of pure functions that are unit tested. The two existing views, *files* (Changes) and *folders* (Full System), are the first renderers; the app no longer knows about folders. A new kind of view is one file plus one line in `views/index.ts`.
 - The layout uses ELK's network-simplex layering and placement, which cut the height of a 74-file Full System diagram by about 30%.
 
 #### Fixed
