@@ -23,6 +23,12 @@ export interface ViewRenderer<State = unknown> {
   /** Unique id, e.g. "files" or "folders". */
   readonly kind: string;
 
+  /** What the view picker calls it. */
+  readonly label: string;
+
+  /** Whether this view can show the graph at all. A view that needs routes is not offered for a project without any. */
+  isAvailable(graph: GraphModel): boolean;
+
   /** The state before the reader has changed anything. */
   readonly initialState: State;
 
@@ -34,6 +40,9 @@ export interface ViewRenderer<State = unknown> {
 
   /** The reader clicked a node that stands for several files (a folder, a branch): open or close it. Returns the new state. */
   toggleNode(graph: GraphModel, state: State, nodeId: string): State;
+
+  /** The id of the node that shows a file, for the camera: the file's own card, or a card that stands for it (a route). */
+  nodeFor(graph: GraphModel, fileId: string): string;
 
   /**
    * Make sure the card of a file exists, for the sidebar and for following edits. Returns the same

@@ -1,6 +1,7 @@
 import { FileCard } from '../FileCard';
 import { GroupBox, GroupCard } from '../GroupCard';
 import { PlaceholderCard } from '../PlaceholderCard';
+import { RouteCard } from '../RouteCard';
 
 /**
  * The component that draws each kind of node, for every view. A renderer's nodes use the `type`
@@ -11,4 +12,5 @@ export const nodeTypes = {
   placeholder: PlaceholderCard,
   groupCard: GroupCard,
   groupBox: GroupBox,
+  routeCard: RouteCard,
 };

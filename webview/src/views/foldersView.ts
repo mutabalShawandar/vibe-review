@@ -26,6 +26,9 @@ const folderOf = (nodeId: string): string | undefined => {
 /** Files inside one box per parent folder. A folder with changes is open; the others are one small card. */
 export const foldersView: ViewRenderer<FolderChoices> = {
   kind: 'folders',
+  label: 'Folders',
+  isAvailable: (graph) => graph.scope === 'full',
+  nodeFor: (_graph, fileId) => fileId, // a file inside an open folder has its own card; a closed one is revealed first
   initialState: new Map(),
 
   layout: (graph, expanded, choices) => layoutGraph(graph, expanded, groupingFor(graph, choices)),

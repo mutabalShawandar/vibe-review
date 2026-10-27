@@ -660,3 +660,84 @@ body {
   font-weight: 400;
   opacity: 0.7;
 }
+
+/* Routes view: one card per URL segment, listing the files that make it up. */
+.route-card {
+  box-sizing: border-box;
+  width: 320px;
+  border: 1px solid var(--vr-line);
+  border-left-width: 6px;
+  border-radius: 6px;
+  background: var(--vr-card-bg);
+  color: var(--vscode-foreground);
+  position: relative;
+}
+.route-card.has-changes {
+  border-color: var(--vr-changed);
+}
+.route-card__header {
+  box-sizing: border-box;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--vr-line);
+  overflow: hidden;
+}
+.route-card__header.is-foldable {
+  cursor: pointer;
+}
+.route-card__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.route-card__path {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.route-card__count,
+.route-card__project {
+  font-size: 12px;
+  opacity: 0.75;
+}
+.route-card__row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.route-card__row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.route-card__row.status-changed .route-card__file {
+  color: var(--vr-changed);
+  font-weight: 600;
+}
+.route-card__file {
+  white-space: nowrap;
+}
+.route-card__role {
+  font-size: 12px;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.route-card__more {
+  opacity: 0.75;
+  cursor: default;
+}
+.route-card .react-flow__handle {
+  width: 8px;
+  height: 8px;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  background: var(--vr-line);
+}

@@ -31,8 +31,25 @@ export interface GroupData extends Record<string, unknown> {
   changedCount: number;
 }
 export type GroupFlowNode = Node<GroupData, 'groupCard' | 'groupBox'>;
+
+/** What a route card needs: one URL segment of a file-routed framework and the files that make it up. */
+export interface RouteData extends Record<string, unknown> {
+  /** The card's title: "/users/[id]", or "Not in a route". */
+  title: string;
+  /** The project folder, shown when the workspace has more than one project. */
+  project?: string;
+  /** The files listed as rows, in the order a request meets them. */
+  files: GraphNode[];
+  /** Files that are not listed (the card of files outside every route lists only what matters to a review). */
+  hiddenFiles: number;
+  /** Routes below this one, and whether they are folded away. Absent when there is nothing to fold. */
+  fold?: { children: number; collapsed: boolean };
+  changedCount: number;
+}
+export type RouteFlowNode = Node<RouteData, 'routeCard'>;
+
 /** Anything React Flow draws for a graph. */
-export type FlowNode = FileCardNode | GroupFlowNode;
+export type FlowNode = FileCardNode | GroupFlowNode | RouteFlowNode;
 
 /** Which files are drawn inside folder boxes, and which boxes are open. Without it every file is its own card. */
 export interface Grouping {

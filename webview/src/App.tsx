@@ -9,7 +9,7 @@ import { computeRoute, editorMarks, rangeOf } from './route';
 import { CARD_WIDTH, splitPath } from './card';
 import { absolutePosition, type FlowNode } from './layout';
 import { nodeTypes } from './views/nodeTypes';
-import { rendererFor, viewKindFor } from './views';
+import { rendererFor, viewKindFor, viewsFor } from './views';
 import { freshSince, type Fresh } from './fresh';
 import { computeFeatures } from './review';
 import { PLACEHOLDER_HEIGHT, type PlaceholderNode } from './PlaceholderCard';
@@ -58,6 +58,11 @@ export function App() {
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
+  // The reader can pick another view of the same graph when more than one fits (Folders or Routes).
+  const [chosenView, setChosenView] = useState<string | undefined>();
+  const views = state.kind === 'graph' ? viewsFor(state.graph) : [];
+  const viewKind = state.kind === 'graph' ? viewKindFor(state.graph, chosenView) : '';
+
   const chooseScope = (next: GraphScope) => {
     setScope(next);
     vscode.postMessage({ type: 'setScope', scope: next });
@@ -74,6 +79,18 @@ export function App() {
             Full system
           </button>
         </div>
+        {views.length > 1 && (
+          <label className="follow" title="How the graph is drawn">
+            View
+            <select value={viewKind} onChange={(event) => setChosenView(event.target.value)}>
+              {views.map((view) => (
+                <option key={view.kind} value={view.kind}>
+                  {view.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button className="toggle-button" aria-pressed={fullView} onClick={() => setFullView(!fullView)} title="Show every symbol of every file, not only what changed in the big ones">
           Full view
         </button>
@@ -107,7 +124,7 @@ export function App() {
         <Legend />
       </header>
       <main className="canvas">
-        <Body state={state} fullView={fullView} setFullView={setFullView} follow={follow} paused={paused} setPaused={setPaused} resumes={resumes} />
+        <Body state={state} viewKind={viewKind} fullView={fullView} setFullView={setFullView} follow={follow} paused={paused} setPaused={setPaused} resumes={resumes} />
       </main>
     </div>
   );
@@ -187,6 +204,7 @@ function EmptyState({ scope }: { scope: GraphScope }) {
 
 function Body({
   state,
+  viewKind,
   fullView,
   setFullView,
   follow,
@@ -195,6 +213,7 @@ function Body({
   resumes,
 }: {
   state: State;
+  viewKind: string;
   fullView: boolean;
   setFullView(value: boolean): void;
   follow: FollowMode;
@@ -216,6 +235,7 @@ function Body({
       <Graph
         key={state.graph.scope}
         graph={state.graph}
+        viewKind={viewKind}
         touched={state.touched}
         fullView={fullView}
         setFullView={setFullView}
@@ -230,6 +250,7 @@ function Body({
 
 function Graph({
   graph,
+  viewKind,
   touched,
   fullView,
   setFullView,
@@ -239,6 +260,7 @@ function Graph({
   resumes,
 }: {
   graph: GraphModel;
+  viewKind: string;
   touched: string[];
   fullView: boolean;
   setFullView(value: boolean): void;
@@ -254,7 +276,7 @@ function Graph({
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
   // The active view decides where everything goes. What the reader changed in it (open folders...) is its state.
-  const renderer = useMemo(() => rendererFor(viewKindFor(graph)), [graph.scope]); // eslint-disable-line react-hooks/exhaustive-deps -- the view depends only on the scope
+  const renderer = useMemo(() => rendererFor(viewKind), [viewKind]);
   const [viewStates, setViewStates] = useState<Readonly<Record<string, unknown>>>({});
   const viewState = viewStates[renderer.kind] ?? renderer.initialState;
   const toggleNode = useCallback(
@@ -482,6 +504,9 @@ function Graph({
   // measured only one card here and zoomed far into it.)
   const fitted = useRef(false);
   useEffect(() => {
+    fitted.current = false; // another view is another picture: fit it too
+  }, [renderer]);
+  useEffect(() => {
     if (!elements || fitted.current) {
       return;
     }
@@ -518,7 +543,7 @@ function Graph({
         return;
       }
       // The rectangle to show, from our own layout: cards and placeholders as they are on screen now.
-      const target = mode === 'latest' ? files.slice(-1) : files;
+      const target = (mode === 'latest' ? files.slice(-1) : files).map((file) => renderer.nodeFor(graph, file));
       const rects = [...(shownNodes.current.elements?.nodes ?? []), ...shownNodes.current.placeholders]
         .filter((node) => target.includes(node.id))
         .map((node) => ({ ...absolutePosition(node as FlowNode, shownNodes.current.elements?.nodes ?? []), width: node.width ?? 300, height: node.height ?? 120 }));
@@ -543,7 +568,7 @@ function Graph({
         void fitBounds({ x: left, y: top, width, height }, { duration: 700, padding: 0.2 });
       }
     },
-    [fitBounds, setCenter],
+    [fitBounds, setCenter, renderer, graph],
   );
   useEffect(() => () => clearTimeout(trailingMove.current), []);
 
@@ -657,9 +682,9 @@ function Graph({
         onPick={(id) => {
           // A file in a closed folder has no card yet: open the folder, and the camera follows once its layout is on screen.
           if (showFiles([id])) {
-            pendingFit.current = id;
+            pendingFit.current = renderer.nodeFor(graph, id);
           } else {
-            void fitView({ nodes: [{ id }], duration: 400, maxZoom: 1, padding: 0.4 }); // bring the card into view
+            void fitView({ nodes: [{ id: renderer.nodeFor(graph, id) }], duration: 400, maxZoom: 1, padding: 0.4 }); // bring the card into view
           }
           open(id);
         }}
