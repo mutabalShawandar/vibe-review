@@ -343,6 +343,8 @@ function Graph({
   const previousGraph = useRef(graph);
   const [fresh, setFresh] = useState<Fresh | undefined>();
   const pendingFollow = useRef<string[]>([]);
+  // A file picked in the sidebar whose folder had to be opened first: the camera goes to it once its card exists.
+  const pendingFit = useRef<string | undefined>(undefined);
 
   // Files being written right now (a write was seen in the last moment). They show a typing indicator.
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
@@ -394,7 +396,8 @@ function Graph({
     if (!elements || editing.size === 0) {
       return [];
     }
-    const known = new Set(elements.nodes.map((node) => node.id));
+    // A file inside a collapsed folder has no card but is not new: only files the graph lacks get a placeholder.
+    const known = new Set([...elements.nodes.map((node) => node.id), ...graph.nodes.map((node) => node.id)]);
     const spots = elements.nodes.map((node) => ({ ...absolutePosition(node, elements.nodes), width: node.width ?? 0 }));
     const right = Math.max(0, ...spots.map((spot) => spot.x + spot.width));
     const top = Math.min(0, ...spots.map((spot) => spot.y));
@@ -410,7 +413,7 @@ function Graph({
         draggable: false,
         selectable: false,
       }));
-  }, [elements, editing]);
+  }, [elements, editing, graph]);
 
   // Arrows touching the hovered card (or symbol) are "hot"; everything else is dimmed.
   const view = useMemo(() => {
@@ -582,12 +585,18 @@ function Graph({
         lastEdited.current = file;
       }
       const go = () => moveTo(follow === 'all' ? editingNow.current : files);
+      // A file in a collapsed folder has no card: open the folder, and move once the new layout is on screen.
+      const opened = files.filter((file) => ids.has(file)).map((file) => showFile(file));
+      if (opened.some(Boolean)) {
+        pendingFollow.current = [...(follow === 'all' ? editingNow.current : files)].reverse(); // moveTo wants the newest last
+        return;
+      }
       // A placeholder card has to be on screen before the view can move to it.
       files.some((file) => !ids.has(file)) ? setTimeout(go, 100) : go();
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [graph, follow, moveTo]);
+  }, [graph, follow, moveTo, showFile]);
 
   // "Resume follow": go where the agent is. Files being written right now, or else the last one written.
   useEffect(() => {
@@ -610,6 +619,19 @@ function Graph({
     }, 80);
     return () => clearTimeout(timer);
   }, [elements]); // eslint-disable-line react-hooks/exhaustive-deps -- only a new layout may start a move
+
+  // Go to a file picked in the sidebar once its card exists (its folder may have just been opened).
+  useEffect(() => {
+    const id = pendingFit.current;
+    if (!id || !elements?.nodes.some((node) => node.id === id)) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      pendingFit.current = undefined;
+      void fitView({ nodes: [{ id }], duration: 400, maxZoom: 1, padding: 0.4 });
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [elements, fitView]);
 
   // Layout is asynchronous, so the cards appear a moment after the data arrives. The old layout
   // stays on screen while a new one is computed, so expanding a card does not blank the graph.
@@ -636,9 +658,12 @@ function Graph({
       <Sidebar
         features={features}
         onPick={(id) => {
-          // A file in a closed folder has no card yet: open the folder, and look once its layout is on screen.
-          const wait = showFile(id) ? 500 : 0;
-          setTimeout(() => void fitView({ nodes: [{ id }], duration: 400, maxZoom: 1, padding: 0.4 }), wait); // bring the card into view
+          // A file in a closed folder has no card yet: open the folder, and the camera follows once its layout is on screen.
+          if (showFile(id)) {
+            pendingFit.current = id;
+          } else {
+            void fitView({ nodes: [{ id }], duration: 400, maxZoom: 1, padding: 0.4 }); // bring the card into view
+          }
           open(id);
         }}
         onHover={focus}
