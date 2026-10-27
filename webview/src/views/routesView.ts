@@ -113,7 +113,8 @@ function routeCard(route: RouteNode, collapsed: CollapsedRoutes, showProject: bo
     height: rowsHeight(route.files.length),
     className: route.files.some((file) => file.status === 'changed') ? 'status-changed' : undefined,
     data: {
-      title: route.route,
+      title: route.segment,
+      path: route.route,
       ...(showProject ? { project: route.project || '(root)' } : {}),
       files: route.files,
       hiddenFiles: 0,

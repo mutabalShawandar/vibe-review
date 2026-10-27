@@ -34,8 +34,10 @@ export type GroupFlowNode = Node<GroupData, 'groupCard' | 'groupBox'>;
 
 /** What a route card needs: one URL segment of a file-routed framework and the files that make it up. */
 export interface RouteData extends Record<string, unknown> {
-  /** The card's title: "/users/[id]", or "Not in a route". */
+  /** The card's title: "[id]", "users/[id]", or "Not in a route". */
   title: string;
+  /** The full URL path, for the tooltip. Absent for the card of files outside every route. */
+  path?: string;
   /** The project folder, shown when the workspace has more than one project. */
   project?: string;
   /** The files listed as rows, in the order a request meets them. */

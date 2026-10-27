@@ -12,7 +12,7 @@ import { ROUTE_HEADER } from './views/routesView';
  */
 export function RouteCard({ id, data }: NodeProps<RouteFlowNode>) {
   const { toggleNode, open } = useContext(CardActions);
-  const { title, project, files, hiddenFiles, fold, changedCount } = data;
+  const { title, path, project, files, hiddenFiles, fold, changedCount } = data;
 
   return (
     <div className={`route-card${changedCount > 0 ? ' has-changes' : ''}`}>
@@ -21,7 +21,7 @@ export function RouteCard({ id, data }: NodeProps<RouteFlowNode>) {
       <header
         className={`route-card__header${fold ? ' is-foldable' : ''}`}
         style={{ height: ROUTE_HEADER }}
-        title={fold ? (fold.collapsed ? 'Show the routes below' : 'Hide the routes below') : undefined}
+        title={[path, fold && (fold.collapsed ? 'click to show the routes below' : 'click to hide the routes below')].filter(Boolean).join(': ') || undefined}
         onClick={() => fold && toggleNode(id)}
       >
         <div className="route-card__title">

@@ -8,7 +8,10 @@ export interface RouteNode {
   project: string;
   /** The full URL path: "/users/[id]". */
   route: string;
-  /** Its last part, "[id]", or "/" for the root. */
+  /**
+   * What the card is called: its last part, "[id]", or "/" for the root. A run of segments that hold
+   * no file of their own and lead to a single route is folded into it: "workspaces/[id]/analytics".
+   */
   segment: string;
   /** The id of the route above, undefined for a root. */
   parent?: string;
@@ -71,6 +74,8 @@ export function buildRouteTree(files: readonly GraphNode[]): RouteTree {
     }
   }
 
+  foldEmptyChains(nodes);
+
   for (const node of nodes.values()) {
     node.children.sort((a, b) => nodes.get(a)!.segment.localeCompare(nodes.get(b)!.segment));
     node.files.sort((a, b) => roleRank(a) - roleRank(b) || a.id.localeCompare(b.id));
@@ -80,6 +85,27 @@ export function buildRouteTree(files: readonly GraphNode[]): RouteTree {
     .sort((a, b) => a.project.localeCompare(b.project))
     .map((node) => node.id);
   return { nodes, roots, other };
+}
+
+/**
+ * A segment with no file of its own and exactly one route below it says nothing a reader needs
+ * ("/api" before "/api/users"), and a deep API makes the tree many columns wide. Its child takes its
+ * place and its name: the child's `segment` becomes "api/users". The root is always kept.
+ */
+function foldEmptyChains(nodes: Map<string, RouteNode>): void {
+  // Top-down, so a chain of several empty segments folds into its last route in one pass.
+  const byDepth = [...nodes.values()].sort((a, b) => a.route.split('/').length - b.route.split('/').length);
+  for (const node of byDepth) {
+    if (node.parent === undefined || node.files.length > 0 || node.children.length !== 1) {
+      continue;
+    }
+    const parent = nodes.get(node.parent)!;
+    const child = nodes.get(node.children[0])!;
+    child.parent = parent.id;
+    child.segment = `${node.segment}/${child.segment}`;
+    parent.children[parent.children.indexOf(node.id)] = child.id;
+    nodes.delete(node.id);
+  }
 }
 
 /** The routes to draw: everything except what sits below a collapsed route. */
