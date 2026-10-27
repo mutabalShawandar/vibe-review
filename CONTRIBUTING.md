@@ -90,6 +90,7 @@ A framework is not a language: Next.js and Express are both TypeScript, and one 
    - `id`: e.g. `nextjs`.
    - `detect(ctx, files)`: return the project folders that use the framework, `""` for the workspace root. `files` is every file git knows, so no directory walk is needed; read config files such as `package.json` or `pyproject.toml` through `ctx.readFile`. Return `[]` when the framework is not used.
    - `entryPoint(path)`: the label for a notable file, or `undefined` for an ordinary one. `path` is relative to the project folder `detect` returned, so the rules work wherever the project lives.
+   - `route?(path)`: optional, for frameworks that turn files into URLs. The URL path a labeled file belongs to, with dynamic parts written as the framework writes them (`/users/[id]`). Files of one route (a page and its layout) return the same string. It feeds the Routes view; see `NextJsStrategy` for how groups, slots and private folders are handled.
 2. **Register it** with one line in [`src/frameworks/index.ts`](src/frameworks/index.ts).
 3. **Test it** like `test/frameworks.test.ts`: detection (root, monorepo, invalid config) and the label of each kind of file, including files that must stay unlabeled.
 4. **Try it for real** with `npm run host` on a project that uses the framework.
@@ -101,9 +102,11 @@ If several frameworks are detected, a file is judged by the deepest project fold
 A view is one way of drawing the graph: Changes shows one card per file, Full System puts files in folder boxes. The app asks the active view where everything goes and never looks at what a node stands for.
 
 1. **Create `webview/src/views/<name>View.ts`** implementing `ViewRenderer` (see [`webview/src/views/ViewRenderer.ts`](webview/src/views/ViewRenderer.ts)):
-   - `kind` and `initialState`: the id, and what the view remembers about the reader's choices (open folders, folded branches) before they change anything.
+   - `kind` and `label`: the id, and the name in the *View* menu. `isAvailable(graph)` says when the view can show a graph at all (Routes needs files with a route), and `viewsFor` lists the available ones.
+   - `initialState`: what the view remembers about the reader's choices (open folders, folded branches) before they change anything.
    - `layout(graph, expanded, state)`: the nodes with positions and the arrows between them.
    - `toggleNode(graph, state, nodeId)`: a click on a node that stands for several files; return the new state.
+   - `nodeFor(graph, fileId)`: the id of the node that shows a file, for the camera. A file's own card, or the card that stands for it (a route).
    - `reveal(graph, state, fileId)`: make a file's card exist (the sidebar and the follow mode need it); return the same `state` object if it is visible already.
    Keep it to pure functions with no React, so every transition is unit tested.
 2. **Draw its nodes.** Every node `type` the view emits needs a component in [`webview/src/views/nodeTypes.ts`](webview/src/views/nodeTypes.ts).
