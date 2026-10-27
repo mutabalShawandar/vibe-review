@@ -75,10 +75,10 @@ describe('FrameworkRegistry', () => {
     registry.register(new NextJsStrategy());
     const { ctx, list } = workspace({ 'web/package.json': next, 'web/app/page.tsx': '', 'server/app/page.tsx': '' });
 
-    const label = registry.labeler(ctx, list);
+    const classify = registry.classifier(ctx, list);
 
-    expect(label('web/app/page.tsx')).toBe('Next.js page');
-    expect(label('server/app/page.tsx')).toBeUndefined(); // outside the Next.js project
+    expect(classify('web/app/page.tsx')?.entryPoint).toBe('Next.js page');
+    expect(classify('server/app/page.tsx')?.entryPoint).toBeUndefined(); // outside the Next.js project
   });
 
   it('lets the deepest project decide and falls through to the next framework in the same folder', () => {
@@ -88,12 +88,12 @@ describe('FrameworkRegistry', () => {
     const registry = new FrameworkRegistry();
     [outer, inner, sibling].forEach((s) => registry.register(s));
 
-    const label = registry.labeler({ fileExists: () => false, readFile: () => undefined }, []);
+    const classify = registry.classifier({ fileExists: () => false, readFile: () => undefined }, []);
 
-    expect(label('pkg/a.ts')).toBe('inner');
-    expect(label('pkg/b.ts')).toBe('sibling');
-    expect(label('pkg/c.ts')).toBeUndefined(); // the outer project does not reach into the inner one
-    expect(label('other.ts')).toBe('outer');
+    expect(classify('pkg/a.ts')?.entryPoint).toBe('inner');
+    expect(classify('pkg/b.ts')?.entryPoint).toBe('sibling');
+    expect(classify('pkg/c.ts')?.entryPoint).toBeUndefined(); // the outer project does not reach into the inner one
+    expect(classify('other.ts')?.entryPoint).toBe('outer');
   });
 
   it('rejects a duplicate id', () => {
@@ -106,7 +106,62 @@ describe('FrameworkRegistry', () => {
     const web: FrameworkStrategy = { id: 'web', detect: () => ['web'], entryPoint: () => 'web' };
     const registry = new FrameworkRegistry();
     registry.register(web);
-    const label = registry.labeler({ fileExists: () => false, readFile: () => undefined }, []);
-    expect(label('webapp/x.ts')).toBeUndefined();
+    const classify = registry.classifier({ fileExists: () => false, readFile: () => undefined }, []);
+    expect(classify('webapp/x.ts')?.entryPoint).toBeUndefined();
+  });
+});
+
+describe('NextJsStrategy.route', () => {
+  const route = (path: string) => new NextJsStrategy().route(path);
+
+  it.each([
+    ['app/page.tsx', '/'],
+    ['app/layout.tsx', '/'],
+    ['src/app/users/page.tsx', '/users'],
+    ['app/users/[id]/page.tsx', '/users/[id]'],
+    ['app/users/[id]/loading.tsx', '/users/[id]'],
+    ['app/api/users/route.ts', '/api/users'],
+    ['app/docs/[...slug]/page.tsx', '/docs/[...slug]'],
+    ['app/(shop)/cart/page.tsx', '/cart'], // a route group is not part of the URL
+    ['app/(shop)/(promo)/sale/page.tsx', '/sale'],
+    ['app/@modal/photo/page.tsx', '/photo'], // a parallel-route slot is not either
+    ['app/(.)photo/page.tsx', '/photo'], // an intercepting route keeps the name it intercepts
+    ['pages/index.tsx', '/'],
+    ['pages/users/index.tsx', '/users'],
+    ['pages/users/[id].tsx', '/users/[id]'],
+    ['pages/api/users.ts', '/api/users'],
+  ])('%s is %s', (path, expected) => {
+    expect(route(path)).toBe(expected);
+  });
+
+  it.each([
+    'app/components/Button.tsx', // not a special file
+    'app/_lib/page.tsx', // a private folder is not a route
+    'app/users/_components/page.tsx',
+    'pages/_app.tsx',
+    'pages/_document.tsx',
+    'middleware.ts',
+    'lib/db.ts',
+  ])('%s has no route', (path) => {
+    expect(route(path)).toBeUndefined();
+  });
+});
+
+describe('FrameworkRegistry classification', () => {
+  it('reports the label, the route and the project folder of a file', () => {
+    const registry = new FrameworkRegistry();
+    registry.register(new NextJsStrategy());
+    const { ctx, list } = workspace({ 'apps/web/package.json': next });
+
+    const classify = registry.classifier(ctx, list);
+
+    expect(classify('apps/web/app/users/[id]/page.tsx')).toEqual({
+      entryPoint: 'Next.js page',
+      route: '/users/[id]',
+      project: 'apps/web',
+    });
+    // labeled, but not a route
+    expect(classify('apps/web/middleware.ts')).toEqual({ entryPoint: 'Next.js middleware', project: 'apps/web' });
+    expect(classify('apps/web/lib/db.ts')).toBeUndefined();
   });
 });

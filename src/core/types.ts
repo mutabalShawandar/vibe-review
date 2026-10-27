@@ -111,6 +111,10 @@ export interface AnalyzedFile {
   imports: ResolvedImport[];
   /** Set by the strategy for notable files, e.g. "Next.js page". */
   entryPoint?: string;
+  /** The URL the file belongs to ("/users/[id]"), set by a framework that routes by file. */
+  route?: string;
+  /** The project folder of the framework that classified the file ("" for the workspace root). Set together with `entryPoint`. */
+  project?: string;
 }
 
 // --- What changed in git -----------------------------------------------------------
@@ -175,6 +179,10 @@ export interface GraphNode {
   symbols: GraphSymbol[];
   /** Set by the strategy for notable files, e.g. "Next.js page", "FastAPI router". */
   entryPoint?: string;
+  /** The URL the file belongs to ("/users/[id]"), for frameworks that route by file. */
+  route?: string;
+  /** The project folder of the framework that classified the file ("" for the workspace root). */
+  project?: string;
 }
 
 /** A symbol in a file, or one of its members: `{ symbol: 'UserService', member: 'find' }`. */

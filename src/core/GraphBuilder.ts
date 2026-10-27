@@ -88,6 +88,8 @@ export function buildGraph(files: AnalyzedFile[], changes: ChangeSet, scope: Gra
         status === 'changed' ? 'all' : (relevantSymbols.get(file.path) ?? new Set()),
       ),
       ...(file.entryPoint ? { entryPoint: file.entryPoint } : {}),
+      ...(file.route !== undefined ? { route: file.route } : {}),
+      ...(file.project !== undefined ? { project: file.project } : {}),
     });
   }
   nodes.sort((a, b) => a.id.localeCompare(b.id));

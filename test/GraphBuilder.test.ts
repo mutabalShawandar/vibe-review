@@ -292,4 +292,16 @@ describe('entry points', () => {
     expect(graph.nodes.find((n) => n.id === 'page.tsx')!.entryPoint).toBe('Next.js page');
     expect('entryPoint' in graph.nodes.find((n) => n.id === 'util.ts')!).toBe(false);
   });
+
+  it('carries the route and project of a file, and nothing for ordinary files', () => {
+    const files: AnalyzedFile[] = [
+      { ...file('app/users/page.tsx'), entryPoint: 'Next.js page', route: '/users', project: '' },
+      file('util.ts'),
+    ];
+    const { nodes } = buildGraph(files, [], 'full');
+
+    expect(nodes.find((n) => n.id === 'app/users/page.tsx')).toMatchObject({ route: '/users', project: '' });
+    expect('route' in nodes.find((n) => n.id === 'util.ts')!).toBe(false);
+    expect('project' in nodes.find((n) => n.id === 'util.ts')!).toBe(false);
+  });
 });

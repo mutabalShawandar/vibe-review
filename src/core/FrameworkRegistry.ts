@@ -1,11 +1,21 @@
 import type { FrameworkStrategy } from './FrameworkStrategy';
 import type { ResolveContext } from './LanguageStrategy';
 
-/** Gives the label of a workspace file, or undefined for an ordinary one. */
-export type EntryPointLabeler = (path: string) => string | undefined;
+/** What the frameworks know about one workspace file. */
+export interface FileClassification {
+  /** The role label, e.g. "Next.js page". */
+  entryPoint?: string;
+  /** The URL the file belongs to, when its framework routes by file. */
+  route?: string;
+  /** The project folder the framework was detected in ("" for the workspace root), so equal routes of two projects stay apart. */
+  project: string;
+}
+
+/** Classifies a workspace file, or returns undefined for an ordinary one. */
+export type FileClassifier = (path: string) => FileClassification | undefined;
 
 /**
- * Holds every registered framework strategy. Once per scan, `labeler` asks each one where it is
+ * Holds every registered framework strategy. Once per scan, `classifier` asks each one where it is
  * used, then answers "what role does this file play?" without the core knowing any framework.
  */
 export class FrameworkRegistry {
@@ -29,7 +39,7 @@ export class FrameworkRegistry {
    * monorepo is judged by its own rules); if several frameworks share that folder, the first
    * registered one that has a label for the file wins.
    */
-  labeler(ctx: ResolveContext, files: readonly string[]): EntryPointLabeler {
+  classifier(ctx: ResolveContext, files: readonly string[]): FileClassifier {
     const projects: { root: string; strategy: FrameworkStrategy }[] = [];
     for (const strategy of this.byId.values()) {
       for (const root of strategy.detect(ctx, files)) {
@@ -50,9 +60,10 @@ export class FrameworkRegistry {
           continue;
         }
         closest = root;
-        const label = strategy.entryPoint(inside);
-        if (label) {
-          return label;
+        const entryPoint = strategy.entryPoint(inside);
+        if (entryPoint) {
+          const route = strategy.route?.(inside);
+          return { entryPoint, ...(route !== undefined ? { route } : {}), project: root };
         }
       }
       return undefined;

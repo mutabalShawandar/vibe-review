@@ -33,6 +33,28 @@ const ROOT_LABELS: Record<string, string> = {
   instrumentation: 'Next.js instrumentation',
 };
 
+// The folder part of an App Router file, split from its name: "app/(shop)/cart/page.tsx" -> "(shop)/cart" and "page".
+const APP_ROUTE_FILE = new RegExp(`^(?:src/)?app/(?:(.*)/)?([^/]+)\\.${CODE}$`, 'i');
+
+/**
+ * The URL of a route from the folders it sits in. Route groups `(shop)` and parallel-route slots
+ * `@modal` do not appear in the URL, an interception prefix `(.)` is dropped from its folder's name,
+ * and a private folder `_lib` is not a route at all, so nothing inside it has one.
+ */
+function urlOf(folders: string[]): string | undefined {
+  const segments: string[] = [];
+  for (const folder of folders.filter(Boolean)) {
+    if (folder.startsWith('_')) {
+      return undefined;
+    }
+    if (/^\(\w[^)]*\)$/.test(folder) || folder.startsWith('@')) {
+      continue; // a group or a slot
+    }
+    segments.push(folder.replace(/^\(\.{1,3}\)/, ''));
+  }
+  return `/${segments.join('/')}`;
+}
+
 const CONFIG_FILE = /^next\.config\.(?:js|mjs|cjs|ts|mts)$/i;
 
 /** Next.js, both the App Router (app/) and the Pages Router (pages/). */
@@ -50,6 +72,20 @@ export class NextJsStrategy implements FrameworkStrategy {
       }
     }
     return roots;
+  }
+
+  route(path: string): string | undefined {
+    const app = APP_ROUTE_FILE.exec(path);
+    if (app && APP_LABELS[app[2].toLowerCase()]) {
+      return urlOf((app[1] ?? '').split('/'));
+    }
+
+    const pages = PAGES_FILE.exec(path);
+    if (pages && !PAGES_SPECIAL[pages[1].toLowerCase()]) {
+      const segments = pages[1].split('/');
+      return urlOf(segments[segments.length - 1] === 'index' ? segments.slice(0, -1) : segments);
+    }
+    return undefined;
   }
 
   entryPoint(path: string): string | undefined {

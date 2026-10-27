@@ -102,7 +102,7 @@ export class WorkspaceAnalyzer {
     const resolveStart = Date.now();
     const context = this.resolveContext(new Set(listed));
     // Frameworks are detected per scan, like resolution: they depend on package.json and the file set.
-    const frameworkLabel = this.frameworks.labeler(context, listed);
+    const classify = this.frameworks.classifier(context, listed);
     const files = [...parsed].map(([file, info]): AnalyzedFile => {
       const strategy = this.registry.forId(info.language)!;
       // One entry per target file: a file imported by two statements gets both their names.
@@ -122,13 +122,16 @@ export class WorkspaceAnalyzer {
       }
       const imports = [...byTarget.values()].sort((a, b) => a.file.localeCompare(b.file));
       // The framework knows more than the language ("Next.js page" vs. nothing), so it goes first.
-      const entryPoint = frameworkLabel(file) ?? info.entryPoint;
+      const framework = classify(file);
+      const entryPoint = framework?.entryPoint ?? info.entryPoint;
       return {
         path: file,
         language: info.language,
         symbols: info.symbols,
         imports,
         ...(entryPoint ? { entryPoint } : {}),
+        ...(framework?.route !== undefined ? { route: framework.route } : {}),
+        ...(framework ? { project: framework.project } : {}),
       };
     });
 

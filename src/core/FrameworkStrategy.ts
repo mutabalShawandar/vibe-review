@@ -10,6 +10,7 @@ import type { ResolveContext } from './LanguageStrategy';
  * How the core uses a framework once per scan:
  *   1. strategy.detect(ctx, files)     -> the project folders that use the framework
  *   2. strategy.entryPoint(path)       -> the role label of a file, relative to its project folder
+ *   3. strategy.route?.(path)          -> optional: the URL the file belongs to, for frameworks that route by file
  */
 export interface FrameworkStrategy {
   /** Unique id, e.g. "nextjs", "fastapi". */
@@ -30,4 +31,11 @@ export interface FrameworkStrategy {
    * wherever the project lives. Example: "src/app/users/page.tsx" -> "Next.js page".
    */
   entryPoint(path: string): string | undefined;
+
+  /**
+   * Optional, for frameworks that turn files into URLs. The route a labeled file belongs to, as a
+   * URL path with the dynamic parts as the framework writes them: "/users/[id]". Files that
+   * share a route (a page and its layout) return the same string. `path` is relative to the project folder.
+   */
+  route?(path: string): string | undefined;
 }
