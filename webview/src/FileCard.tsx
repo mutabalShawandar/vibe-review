@@ -12,7 +12,9 @@ export const CardActions = createContext<{
   blur(): void;
   /** Open a symbol (or the file, without `key`) in the editor and mark its route in the code. */
   open(id: string, key?: string): void;
-}>({ toggle() {}, focus() {}, blur() {}, open() {} });
+  /** Open or close a folder box (by the folder's path). */
+  toggleGroup(key: string): void;
+}>({ toggle() {}, focus() {}, blur() {}, open() {}, toggleGroup() {} });
 
 // A short mark and a name for each kind of symbol, like the icons in a class diagram.
 const KIND: Record<SymbolKind, { mark: string; name: string }> = {

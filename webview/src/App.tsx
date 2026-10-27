@@ -7,7 +7,9 @@ import { CardActions, FileCard } from './FileCard';
 import type { RowMark } from './layout';
 import { computeRoute, editorMarks, rangeOf } from './route';
 import { CARD_WIDTH, splitPath } from './card';
-import { layoutGraph, type FileCardNode } from './layout';
+import { absolutePosition, layoutGraph, type FlowNode, type Grouping } from './layout';
+import { GroupBox, GroupCard } from './GroupCard';
+import { groupNodes } from './groups';
 import { freshSince, type Fresh } from './fresh';
 import { computeFeatures } from './review';
 import { PLACEHOLDER_HEIGHT, PlaceholderCard, type PlaceholderNode } from './PlaceholderCard';
@@ -24,7 +26,7 @@ type State =
 type FollowMode = 'latest' | 'all' | 'off';
 
 // The kinds of node React Flow may draw. Defined once, outside the component, or React Flow would re-create every node on each render.
-const nodeTypes = { fileCard: FileCard, placeholder: PlaceholderCard };
+const nodeTypes = { fileCard: FileCard, placeholder: PlaceholderCard, groupCard: GroupCard, groupBox: GroupBox };
 
 export function App() {
   const [state, setState] = useState<State>({ kind: 'loading', message: 'Starting...' });
@@ -250,9 +252,37 @@ function Graph({
 }) {
   const { fitView, fitBounds, setCenter } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null); // the canvas, to know how much room the camera has
-  const [elements, setElements] = useState<{ nodes: FileCardNode[]; edges: Edge[] } | undefined>();
+  const [elements, setElements] = useState<{ nodes: FlowNode[]; edges: Edge[] } | undefined>();
   // Cards the user opened to see every symbol. Each change needs a new layout: cards change height.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+
+  // Full System draws files inside folder boxes. A box is open when it holds a changed file, unless the reader chose otherwise.
+  const groups = useMemo(() => (graph.scope === 'full' ? groupNodes(graph.nodes) : undefined), [graph]);
+  const [groupChoice, setGroupChoice] = useState<ReadonlyMap<string, boolean>>(new Map());
+  const grouping = useMemo((): Grouping | undefined => {
+    if (!groups) {
+      return undefined;
+    }
+    const changed = new Set(graph.nodes.filter((node) => node.status === 'changed').map((node) => node.id));
+    const open = groups.filter((group) => groupChoice.get(group.key) ?? group.ids.some((id) => changed.has(id)));
+    return { groups, open: new Set(open.map((group) => group.key)) };
+  }, [groups, groupChoice, graph]);
+  const toggleGroup = useCallback(
+    (key: string) => setGroupChoice((previous) => new Map(previous).set(key, !grouping?.open.has(key))),
+    [grouping],
+  );
+  /** Make sure a file's folder is open so its card exists (for the sidebar and for following edits). */
+  const showFile = useCallback(
+    (id: string) => {
+      const group = groups?.find((candidate) => candidate.ids.includes(id));
+      if (group && !grouping?.open.has(group.key)) {
+        setGroupChoice((previous) => new Map(previous).set(group.key, true));
+        return true;
+      }
+      return false;
+    },
+    [groups, grouping],
+  );
 
   // In the full view every card is open. Collapsing one leaves the full view and keeps the others open.
   const shown = useMemo(() => (fullView ? new Set(graph.nodes.map((node) => node.id)) : expanded), [fullView, graph, expanded]);
@@ -295,7 +325,7 @@ function Graph({
     },
     [graph, elements],
   );
-  const actions = useMemo(() => ({ toggle, focus, blur, open }), [toggle, focus, blur, open]);
+  const actions = useMemo(() => ({ toggle, focus, blur, open, toggleGroup }), [toggle, focus, blur, open, toggleGroup]);
 
   // A link in the editor hover asked to walk to another symbol of the route.
   useEffect(() => {
@@ -344,7 +374,7 @@ function Graph({
     return {
       ...elements,
       nodes: elements.nodes.map((node) =>
-        files.has(node.id) || editing.has(node.id)
+        node.type === 'fileCard' && (files.has(node.id) || editing.has(node.id))
           ? {
               ...node,
               data: {
@@ -365,8 +395,9 @@ function Graph({
       return [];
     }
     const known = new Set(elements.nodes.map((node) => node.id));
-    const right = Math.max(0, ...elements.nodes.map((node) => node.position.x + (node.width ?? 0)));
-    const top = Math.min(0, ...elements.nodes.map((node) => node.position.y));
+    const spots = elements.nodes.map((node) => ({ ...absolutePosition(node, elements.nodes), width: node.width ?? 0 }));
+    const right = Math.max(0, ...spots.map((spot) => spot.x + spot.width));
+    const top = Math.min(0, ...spots.map((spot) => spot.y));
     return [...editing]
       .filter((file) => !known.has(file))
       .map((file, index) => ({
@@ -432,11 +463,17 @@ function Graph({
       }
       return marks;
     };
-    const nodes = elements.nodes.map((node) =>
-      related.has(node.id)
+    const nodes = elements.nodes.map((node): FlowNode => {
+      if (node.type === 'groupBox') {
+        return node; // a frame stays as it is: dimming it would dim the files inside it
+      }
+      if (!related.has(node.id)) {
+        return { ...node, className: `${node.className ?? ''} is-dim` };
+      }
+      return node.type === 'fileCard'
         ? { ...node, zIndex: 1000, data: { ...node.data, marks: marksOf(node.id), reveal: reveal.get(node.id) } }
-        : { ...node, className: `${node.className ?? ''} is-dim` },
-    );
+        : { ...node, zIndex: 1000 };
+    });
     return { nodes, edges };
   }, [base, hover]);
 
@@ -483,7 +520,7 @@ function Graph({
       const target = mode === 'latest' ? files.slice(-1) : files;
       const rects = [...(shownNodes.current.elements?.nodes ?? []), ...shownNodes.current.placeholders]
         .filter((node) => target.includes(node.id))
-        .map((node) => ({ x: node.position.x, y: node.position.y, width: node.width ?? 300, height: node.height ?? 120 }));
+        .map((node) => ({ ...absolutePosition(node as FlowNode, shownNodes.current.elements?.nodes ?? []), width: node.width ?? 300, height: node.height ?? 120 }));
       if (rects.length === 0) {
         return;
       }
@@ -578,14 +615,14 @@ function Graph({
   // stays on screen while a new one is computed, so expanding a card does not blank the graph.
   useEffect(() => {
     let cancelled = false; // a newer request may arrive before this layout finishes
-    layoutGraph(graph, shown).then(
+    layoutGraph(graph, shown, grouping).then(
       (result) => !cancelled && setElements(result),
       (error) => console.error('Layout failed', error),
     );
     return () => {
       cancelled = true;
     };
-  }, [graph, shown]);
+  }, [graph, shown, grouping]);
 
   if (!elements) {
     return <p className="message">Laying out {graph.nodes.length} files...</p>;
@@ -599,7 +636,9 @@ function Graph({
       <Sidebar
         features={features}
         onPick={(id) => {
-          void fitView({ nodes: [{ id }], duration: 400, maxZoom: 1, padding: 0.4 }); // bring the card into view
+          // A file in a closed folder has no card yet: open the folder, and look once its layout is on screen.
+          const wait = showFile(id) ? 500 : 0;
+          setTimeout(() => void fitView({ nodes: [{ id }], duration: 400, maxZoom: 1, padding: 0.4 }), wait); // bring the card into view
           open(id);
         }}
         onHover={focus}

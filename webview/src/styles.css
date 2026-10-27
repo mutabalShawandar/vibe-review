@@ -585,3 +585,78 @@ body {
 .react-flow__background {
   opacity: 0.5; /* a calmer canvas, so the cards read as the foreground */
 }
+
+/* Folder boxes (Full System): a collapsed folder is one card, an open one is a frame around its files. */
+.group-card {
+  box-sizing: border-box;
+  width: 340px;
+  height: 84px;
+  padding: 10px 14px;
+  border: 1px solid var(--vr-line);
+  border-left-width: 6px;
+  border-radius: 6px;
+  background: var(--vr-card-bg);
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  position: relative;
+}
+.group-card.has-changes {
+  border-color: var(--vr-changed);
+}
+.group-card:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.group-card__name {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.group-card__icon {
+  display: inline-block;
+  width: 16px;
+  opacity: 0.7;
+}
+.group-card__meta {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+.group-card .react-flow__handle {
+  width: 8px;
+  height: 8px;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  background: var(--vr-line);
+}
+.group-box {
+  box-sizing: border-box;
+  border: 1px dashed var(--vr-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+}
+.group-box__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.group-box__count {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.7;
+}
